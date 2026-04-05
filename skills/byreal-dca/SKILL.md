@@ -174,9 +174,7 @@ openclaw cron add \
   --every 1h \
   --session isolated \
   --timeout-seconds 600 \
-  --announce \
-  --to <user_telegram_id> \
-  --message "DCA executor. FIRST read the skill file at ~/.openclaw/workspace/skills/byreal-dca/SKILL.md — follow the 'Workflow: Daily Execution (Cron)' section exactly, including retry logic and exit monitoring. Read all ~/.openclaw/workspace/configs/dca/*.json. For each active plan: execute the full cron workflow from the skill. Report results."
+  --message "DCA executor. FIRST read the skill file at ~/.openclaw/workspace/skills/byreal-dca/SKILL.md — follow the 'Workflow: Daily Execution (Cron)' section exactly, including retry logic and exit monitoring. Read all ~/.openclaw/workspace/configs/dca/*.json. For each active plan: execute the full cron workflow from the skill. Write watchdog state per §Strategy Watchdog."
 ```
 
 ---
@@ -237,6 +235,21 @@ For each active config in `~/.openclaw/workspace/configs/dca/*.json`:
 ```
 
 No catch-up logic by default.
+
+### Post-Cycle: Watchdog Integration
+
+After completing all plan executions for this cron run:
+
+```
+14. Alert flag: IF any plan produced a new alert this cycle:
+      Read ~/.openclaw/workspace/watchdog_state.json
+      Set pending_alerts = true (atomic write: write .tmp then rename)
+
+15. Watchdog health check:
+      Read watchdog_state.last_heartbeat and watchdog_state.notify_interval
+      IF now - last_heartbeat > 2 × notify_interval:
+        → Watchdog may be down. Degrade to direct push: send this cycle's results to user via notification channel.
+```
 
 > **Why `--every 1h`?** The cron fires hourly so future sub-daily frequencies (e.g. every 4h) work without re-registering. For daily plans, step 1 skips if already executed today. If managing many active plans, be aware the 600s timeout leaves limited room for the 5-min retry wait — prefer deferring retries to the next cron run when multiple plans are active.
 

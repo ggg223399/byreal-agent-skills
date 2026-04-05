@@ -359,6 +359,23 @@ EVERY monitor_interval:
        days_active, last_report_at: now
        effective_apy, time_in_range_pct, il_percent, compound_count
        alerts: collect any active warnings from steps 3-9
+       # This step ONLY writes runtime state. Do NOT send messages to user.
+       # User-facing notifications are handled by byreal-watchdog.
+```
+
+### Post-Cycle: Watchdog Integration
+
+After completing the monitoring cycle:
+
+```
+12. Alert flag: IF this cycle produced a new alert (depeg warning, IL alert, out-of-range, etc.):
+      Read ~/.openclaw/workspace/watchdog_state.json
+      Set pending_alerts = true (atomic write: write .tmp then rename)
+
+13. Watchdog health check:
+      Read watchdog_state.last_heartbeat and watchdog_state.notify_interval
+      IF now - last_heartbeat > 2 × notify_interval:
+        → Watchdog may be down. Degrade to direct push: send this cycle's alerts to user via notification channel.
 ```
 
 ## Exit Conditions

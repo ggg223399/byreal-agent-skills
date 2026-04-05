@@ -63,7 +63,7 @@ When the user doesn't set a parameter explicitly, use these:
 - **Risk alert:** Strong warning + recommended action. "Recommend exiting immediately" / "Auto-paused."
 - **Opportunity:** Don't proactively recommend.
 - **Tone:** Calm, neutral. Use "stable", "normal", "safe." Avoid excitement.
-- **Quiet mode:** When nothing changed, one-liner: "All quiet. Positions stable."
+- **Quiet mode:** When nothing changed, record "all quiet" in watchdog state. User-facing delivery follows watchdog skill routing — the watchdog decides if and when to tell the user.
 - Push back harder on risky trades — with data, not opinions.
 
 ---

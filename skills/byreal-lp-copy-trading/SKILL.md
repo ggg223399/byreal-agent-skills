@@ -384,11 +384,13 @@ IF follow_mode == "position":
   source_status = detect_source_status(source_positions, source_position_address, source_nft_mint)
   IF source_status transitioned OPEN → CLOSED:
     local_state.source_closed_at = now()
+    # Direct push — Decision-required exception (see AGENTS.md §Notification Routing)
     IF source_close_action == "notify":
       SEND Telegram notification:
         "Original source position closed. Your copied position is still open."
         Actions: [Keep monitoring] [Close my copy] [Pick a new position to copy]
       local_state.pending_user_decision = "source_closed"
+    # Direct push — Decision-required exception (see AGENTS.md §Notification Routing)
     ELIF source_close_action == "close_copy":
       FOR each pos in active_positions:
         byreal-cli --wallet-address <copier_wallet> positions close --nft-mint <pos.nft_mint> -o json
@@ -626,6 +628,21 @@ IF local_state.pending_user_decision == "source_closed":
   REPORT: deployed/budget, positions, per-position PnL, per-source-wallet 7d stats,
           fees earned, compounded, rebalance count+cost, stop-loss exits,
           follow latency, gas spent, net PnL
+```
+
+### Post-Cycle: Watchdog Integration
+
+After completing the monitoring cycle:
+
+```
+8. Alert flag: IF this cycle produced a new alert (stop-loss, source quality warning, etc.):
+     Read ~/.openclaw/workspace/watchdog_state.json
+     Set pending_alerts = true (atomic write: write .tmp then rename)
+
+9. Watchdog health check:
+     Read watchdog_state.last_heartbeat and watchdog_state.notify_interval
+     IF now - last_heartbeat > 2 × notify_interval:
+       → Watchdog may be down. Degrade to direct push: send this cycle's alerts to user via notification channel.
 ```
 
 ## Exit Conditions
