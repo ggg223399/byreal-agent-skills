@@ -156,7 +156,7 @@ openclaw cron add \
   --every <monitor_interval> \
   --session isolated \
   --timeout-seconds 600 \
-  --message "Stable Yield Farm executor. Read the skill file at ~/.openclaw/workspace/skills/byreal-stable-yield-farm/SKILL.md, load this strategy's runtime state, run one monitoring cycle, persist state, and report alerts."
+  --message "Stable Yield Farm executor. Read the skill file at ~/.openclaw/workspace/skills/byreal-stable-yield-farm/SKILL.md, load this strategy's runtime state, run one monitoring cycle, and persist state and watchdog fields. Do not send messages to user."
 ```
 
 Persist these watchdog fields in the strategy runtime state so AGENTS.md §Strategy Watchdog can monitor health:

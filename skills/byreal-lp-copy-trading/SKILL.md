@@ -129,7 +129,7 @@ openclaw cron add \
   --every <monitor_interval> \
   --session isolated \
   --timeout-seconds 600 \
-  --message "LP Copy Trading executor. Read the skill file at ~/.openclaw/workspace/skills/byreal-lp-copy-trading/SKILL.md, load this strategy's runtime state, run one monitoring cycle, persist state, and report alerts."
+  --message "LP Copy Trading executor. Read the skill file at ~/.openclaw/workspace/skills/byreal-lp-copy-trading/SKILL.md, load this strategy's runtime state, run one monitoring cycle, and persist state and watchdog fields. Do not send messages to user."
 ```
 
 Persist these watchdog fields in the strategy runtime state so AGENTS.md §Strategy Watchdog can monitor health:
@@ -624,10 +624,11 @@ IF local_state.pending_user_decision == "source_closed":
     0 positions for 3+ days → DEACTIVATE + ALERT
     >10 rebalances in 7d   → WARN "excessive churn"
 
-  # Health report
-  REPORT: deployed/budget, positions, per-position PnL, per-source-wallet 7d stats,
-          fees earned, compounded, rebalance count+cost, stop-loss exits,
-          follow latency, gas spent, net PnL
+  # Write watchdog state — performance snapshot per AGENTS.md §Strategy Watchdog:
+  #   strategy_name, status, budget_usd, current_value_usd, net_pnl_usd,
+  #   net_pnl_percent, total_fees_earned_usd, total_costs_usd, days_active,
+  #   last_report_at, alerts, effective_apy, il_percent, compound_count, copy_leader
+  # Do NOT send messages to user. User-facing notifications are handled by byreal-watchdog.
 
 ### Step 8 — Alert Flag (Watchdog Integration)
   IF this cycle produced a new alert (stop-loss, source quality warning, etc.):

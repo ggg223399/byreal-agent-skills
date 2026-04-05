@@ -231,7 +231,9 @@ For each active config in `~/.openclaw/workspace/configs/dca/*.json`:
     → if consecutive_failures ≥ 3 → status=attention_required
     → schedule.last_run_at = now
 12. Check exit conditions (Smart DCA only — see Exit workflow)
-13. Report: one line per token (see Response Formats: Daily Report)
+13. Write watchdog state: update per-plan performance snapshot fields
+      (see AGENTS.md §Strategy Watchdog). Do NOT send messages to user.
+      # User-facing notifications are handled by byreal-watchdog.
 14. Alert flag (watchdog integration):
       IF any plan produced a new alert this cycle:
         Read ~/.openclaw/workspace/watchdog_state.json
