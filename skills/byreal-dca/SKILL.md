@@ -232,24 +232,17 @@ For each active config in `~/.openclaw/workspace/configs/dca/*.json`:
     → schedule.last_run_at = now
 12. Check exit conditions (Smart DCA only — see Exit workflow)
 13. Report: one line per token (see Response Formats: Daily Report)
-```
-
-No catch-up logic by default.
-
-### Post-Cycle: Watchdog Integration
-
-After completing all plan executions for this cron run:
-
-```
-14. Alert flag: IF any plan produced a new alert this cycle:
-      Read ~/.openclaw/workspace/watchdog_state.json
-      Set pending_alerts = true (atomic write: write .tmp then rename)
-
+14. Alert flag (watchdog integration):
+      IF any plan produced a new alert this cycle:
+        Read ~/.openclaw/workspace/watchdog_state.json
+        Set pending_alerts = true (atomic write: write .tmp then rename)
 15. Watchdog health check:
       Read watchdog_state.last_heartbeat and watchdog_state.notify_interval
       IF now - last_heartbeat > 2 × notify_interval:
         → Watchdog may be down. Degrade to direct push: send this cycle's results to user via notification channel.
 ```
+
+No catch-up logic by default.
 
 > **Why `--every 1h`?** The cron fires hourly so future sub-daily frequencies (e.g. every 4h) work without re-registering. For daily plans, step 1 skips if already executed today. If managing many active plans, be aware the 600s timeout leaves limited room for the 5-min retry wait — prefer deferring retries to the next cron run when multiple plans are active.
 
