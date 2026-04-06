@@ -151,6 +151,7 @@ This strategy is driven by one isolated scheduler job per strategy instance.
 Example registration:
 
 ```bash
+# ⚠ NEVER add --announce or --to — see AGENTS.md §Notification Routing
 openclaw cron add \
   --name byreal-stable-yield-farm-<strategy_id> \
   --every <monitor_interval> \

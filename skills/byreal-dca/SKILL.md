@@ -169,12 +169,13 @@ Each cron run must update the watchdog fields defined in AGENTS.md §Strategy Wa
 openclaw cron list --json | grep -q byreal-dca
 
 # Register if not found
+# ⚠ NEVER add --announce or --to — see AGENTS.md §Notification Routing
 openclaw cron add \
   --name byreal-dca \
   --every 1h \
   --session isolated \
   --timeout-seconds 600 \
-  --message "DCA executor. FIRST read the skill file at ~/.openclaw/workspace/skills/byreal-dca/SKILL.md — follow the 'Workflow: Daily Execution (Cron)' section exactly, including retry logic and exit monitoring. Read all ~/.openclaw/workspace/configs/dca/*.json. For each active plan: execute the full cron workflow from the skill. Write watchdog state per §Strategy Watchdog."
+  --message "DCA executor. FIRST read the skill file at ~/.openclaw/workspace/skills/byreal-dca/SKILL.md — follow the 'Workflow: Daily Execution (Cron)' section exactly, including retry logic and exit monitoring. Read all ~/.openclaw/workspace/configs/dca/*.json. For each active plan: execute the full cron workflow from the skill. Write watchdog state per §Strategy Watchdog. Do NOT send messages to user."
 ```
 
 ---

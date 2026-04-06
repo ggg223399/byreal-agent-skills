@@ -124,6 +124,7 @@ This strategy is driven by one isolated scheduler job per strategy instance.
 Example registration:
 
 ```bash
+# ⚠ NEVER add --announce or --to — see AGENTS.md §Notification Routing
 openclaw cron add \
   --name byreal-lp-copy-trading-<strategy_id> \
   --every <monitor_interval> \

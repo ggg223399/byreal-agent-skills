@@ -80,11 +80,14 @@ If both sources are empty, watchdog writes `last_heartbeat` and exits silently.
 ## Cron Registration
 
 ```bash
+# Watchdog is the ONLY cron that uses --announce (it delivers notifications)
 openclaw cron add \
   --name byreal-watchdog \
   --every <notify_interval> \
   --session isolated \
   --timeout-seconds 300 \
+  --announce \
+  --to <user_telegram_id> \
   --message "Watchdog quick check. Step 1: Read ONLY ~/.openclaw/workspace/watchdog_state.json and USER.md §Notification Channel. Step 2: Check pending_alerts flag and Notify On preference. If mute=true and pending_alerts=false → write last_heartbeat and end session. If errors_only and pending_alerts=false → write last_heartbeat and end. If summary_only and pending_alerts=false and not in report window → write last_heartbeat and end. If 24h since last_self_check → proceed to Step 3. If every_action → proceed to Step 3. Step 3 (only if push needed): NOW read the full skill at ~/.openclaw/workspace/skills/byreal-watchdog/SKILL.md, read all strategy states, compose and send notification per the skill's workflow."
 ```
 
