@@ -63,7 +63,7 @@ After the user replies with timezone + risk tier, before sending Step 2:
    - Identity: name (TG display name), language (detected from user message), timezone (user reply)
    - Notification Channel: platform=telegram, handle (from TG context), report schedule + notify-on use defaults
    - Risk Profile: tier (user reply), fill default limits per tier
-   - Wallets: from BOOT.md wallet discovery
+   - Wallets: from BOOT.md wallet discovery (writes by wallet type: Solana, EVM)
 4. Verify: SOUL.md has content, USER.md has name + tier + timezone + wallets + notification handle, BOOT.md checks pass
 5. Delete BOOTSTRAP.md
 
@@ -79,11 +79,11 @@ Example (Safe tier, ~$60 balance):
 > Here's what's available for you:
 >
 > **Best fit for Safe:**
-> **Idle Yield** — simplest option, park funds and earn ~3-5% APY. Minimum 50 USDC, you qualify now.
-> **Stablecoin Farm** — provide USDC+USDT liquidity, ~5-10% APY but needs 200+ USDC.
+> **Idle Yield** — simplest option, park funds and earn ~3-5% APY. Recommended 50+ USDC, you qualify now.
+> **Stablecoin Farm** — provide USDC+USDT liquidity, ~5-10% APY. Recommended 200+ USDC to get the most out of it.
 >
 > **Also available (higher risk for your profile):**
-> **TradFi DCA** — auto-invest in tokenized stocks/gold (TSLAx, GLDx) on a schedule. 50 USDC minimum.
+> **TradFi DCA** — auto-invest in tokenized stocks/gold (TSLAx, GLDx) on a schedule. Recommended 50+ USDC.
 > **Crypto DCA** — same idea but for SOL, BTC etc. More volatile.
 > **Copy Farm** — mirror top LP farmers. High potential but high risk, not typical for Safe.
 >
@@ -107,15 +107,15 @@ Use only strategies that are actually defined in the workspace. Do not invent un
 
 | Condition | Recommendation |
 |-----------|----------------|
-| Wallet unfunded or deployable capital < 25 USDC | Still recommend all strategies with their minimum capital requirements so the user understands what's available. Then share deposit addresses with chain-specific guidance (see Deposit Guidance below) and suggest a practical starting amount. Do not block or gate-keep — the user should leave Step 2 knowing exactly what each strategy does and what it costs to start. |
-| Safe tier with 25-49 USDC | No passive yield strategy is deployable yet. Recommend funding to 50+ USDC for `byreal-idle-yield skill` or 200+ USDC for `byreal-stable-yield-farm skill`. `byreal-dca skill` should only be suggested if the user explicitly wants gradual market exposure despite the tier mismatch. `byreal-lp-copy-trading skill` remains a high-risk exception only. |
+| Wallet unfunded or deployable capital < 25 USDC | Recommend all strategies with their recommended starting capital so the user understands what's available. Then share deposit addresses with chain-specific guidance (see Deposit Guidance below) and suggest a practical starting amount. Do not block or gate-keep — the user should leave Step 2 knowing exactly what each strategy does and what it costs to get started. |
+| Safe tier with 25-49 USDC | `byreal-idle-yield skill` recommended 50+ USDC to start — close to unlocking. `byreal-stable-yield-farm skill` recommended 200+ USDC to start. `byreal-dca skill` is available if the user wants gradual market exposure. `byreal-lp-copy-trading skill` is a higher-risk option. Present all with their starting points. |
 | Safe tier with 50-199 USDC | Default by goal: `byreal-idle-yield skill` for passive yield on parked funds only when the wallet has remained idle long enough to satisfy that skill's idle-time requirement; otherwise recommend waiting or using `byreal-dca skill` only if the user explicitly wants gradual market exposure. `byreal-stable-yield-farm skill` should be deferred until 200+ USDC. `byreal-lp-copy-trading skill` should only be presented as a high-risk exception with explicit mismatch warning and clear user approval. |
 | Safe tier with >= 200 USDC | Default by goal: `byreal-idle-yield skill` for passive lending yield on parked capital only when the wallet has remained idle long enough to satisfy that skill's idle-time requirement, `byreal-stable-yield-farm skill` for lower-risk strategy yield, `byreal-dca skill` only if the user explicitly wants gradual market exposure. `byreal-lp-copy-trading skill` remains a high-risk exception only. |
-| Balanced tier with 25-49 USDC | `byreal-lp-copy-trading skill` is the default candidate. `byreal-idle-yield skill` is not deployable yet at this size. `byreal-stable-yield-farm skill` is underfunded. |
-| Balanced tier with 50-99 USDC | `byreal-lp-copy-trading skill` is the default candidate. `byreal-idle-yield skill` is a valid alternative only if the funds are expected to stay idle long enough to satisfy that skill's idle-time requirement. `byreal-stable-yield-farm skill` is underfunded. |
+| Balanced tier with 25-49 USDC | `byreal-lp-copy-trading skill` is ready to go. `byreal-idle-yield skill` recommended 50+ USDC to start. `byreal-stable-yield-farm skill` recommended 200+ USDC to start. |
+| Balanced tier with 50-99 USDC | `byreal-lp-copy-trading skill` is the default candidate. `byreal-idle-yield skill` is a valid alternative when funds stay idle long enough. `byreal-stable-yield-farm skill` recommended 200+ USDC to start. |
 | Balanced tier with 100-199 USDC | Default by goal: `byreal-idle-yield skill` for passive parked funds only when those funds are expected to stay idle long enough to satisfy that skill's idle-time requirement, `byreal-dca skill` for accumulation, `byreal-lp-copy-trading skill` for active higher-risk execution. `byreal-stable-yield-farm skill` becomes available only if the user is comfortable funding up to the safer 200 USDC level. |
 | Balanced tier with >= 200 USDC | Default by goal: `byreal-idle-yield skill` for passive parked funds only when those funds are expected to stay idle long enough to satisfy that skill's idle-time requirement, `byreal-stable-yield-farm skill` for lower-risk yield, `byreal-dca skill` for gradual accumulation, `byreal-lp-copy-trading skill` for active higher-risk execution. |
-| Aggressive tier with 25-49 USDC | `byreal-lp-copy-trading skill` is the default candidate at this size. `byreal-idle-yield skill` is not deployable yet. |
+| Aggressive tier with 25-49 USDC | `byreal-lp-copy-trading skill` is ready to go. `byreal-idle-yield skill` recommended 50+ USDC to start. |
 | Aggressive tier with 50-99 USDC | `byreal-lp-copy-trading skill` is the default candidate at this size. `byreal-idle-yield skill` is a valid passive parking option only if the funds are expected to stay idle long enough to satisfy that skill's idle-time requirement. |
 | Aggressive tier with >= 100 USDC | `byreal-lp-copy-trading skill` is the default active candidate. `byreal-dca skill` is a valid alternative for accumulation, and both `byreal-idle-yield skill` and `byreal-stable-yield-farm skill` are available if the user wants a lower-risk yield sleeve or parked-capital strategy, with `byreal-idle-yield skill` only recommended when funds are expected to stay idle long enough to satisfy that skill's idle-time requirement. |
 
@@ -123,9 +123,9 @@ Use only strategies that are actually defined in the workspace. Do not invent un
 
 When multiple strategies are technically available, choose in this order:
 
-1. Capital gate:
-   - `< 25 USDC` → no live strategy
-   - `25-49 USDC` → `byreal-lp-copy-trading skill` only
+1. Capital gate (recommend all, highlight what's ready now):
+   - `< 25 USDC` → present all strategies with their starting points, suggest a practical deposit amount
+   - `25-49 USDC` → `byreal-lp-copy-trading skill` ready now; others available with more capital
    - `50-99 USDC` → `byreal-lp-copy-trading skill`, or `byreal-idle-yield skill` only when funds are expected to remain idle long enough
    - `100-199 USDC` → `byreal-idle-yield skill`, `byreal-dca skill`, or `byreal-lp-copy-trading skill` depending on tier/goal, but only recommend `byreal-idle-yield skill` when funds are expected to remain idle long enough
    - `>= 200 USDC` → all current strategies can be considered
@@ -140,7 +140,7 @@ When multiple strategies are technically available, choose in this order:
    - Aggressive → prefer `byreal-lp-copy-trading skill`
 4. If the best-fit strategy is unavailable at current capital, recommend the next-lower-risk valid option or advise funding up to the desired strategy threshold.
 
-When recommending, always cover: why it matches their tier, why it matches their goal, minimum capital needed, how to size it for that tier, and the main risks. If no strategy fits, say so honestly — don't invent unsupported products.
+When recommending, always cover: why it matches their tier, why it matches their goal, recommended starting capital, how to size it for that tier, and the main risks. If no strategy fits, say so honestly — don't invent unsupported products.
 
 ### User Jumps Ahead
 
@@ -164,4 +164,4 @@ When sharing deposit addresses:
 | Mantle | Mantle ecosystem activities |
 | Hyperliquid | Derivatives — fund Solana or Mantle wallet, Agent handles the transfer |
 
-Always show both Solana and Mantle addresses. Use "Mantle" as the chain label (not "Ethereum" or "EVM"). Hyperliquid is not a deposit target.
+Show addresses for all networks in TOOLS.md §Supported Networks. Expand EVM wallet to specific network names (e.g. "Mantle", not "EVM"). Hyperliquid is not a deposit target. Keep this table in sync with TOOLS.md §Supported Networks.
