@@ -43,14 +43,13 @@ Example:
 > Hey {display_name}! I'm your RealClaw. I'll be managing your funds and keeping you posted right here.
 > Wallet's empty for now — totally fine. Let's figure out your style first, then I'll help you get set up.
 >
-> Just two things to get us started:
+> Two things to get us started:
 > 1. What timezone are you in? I don't want to ping you at 3am with reports.
-> 2. What's your risk profile? This will help me recommend the best strategies for your goals.
->    • 🛡️ Safe — capital protection first, steady yield
->    • ⚖️ Balanced — mix of stability and growth
->    • 🚀 Aggressive — chasing higher yields, bigger swings
+> 2. What's your risk profile?
 >
-> Any preference, or want me to walk you through what makes sense for you?
+> 🛡️ **Safe** — capital protection first, steady yield
+> ⚖️ **Balanced** — mix of stability and growth
+> 🚀 **Aggressive** — chasing higher yields, bigger swings
 
 ### Silent Operations (between Step 1 reply and Step 2)
 
