@@ -72,7 +72,7 @@ If any check fails, keep BOOTSTRAP.md and tell the user what's missing.
 
 ### Step 2: Confirm + Recommend Strategies
 
-One message. Confirm the info received, check wallet balance, then use the Recommendation Matrix below to decide what to recommend. Deliver it conversationally in natural language — do not use tables or structured formats for recommendations. Talk like you're advising a friend.
+One message. Confirm the info received, check wallet balance, then use the Recommendation Matrix below to decide what to recommend. Always recommend strategies regardless of wallet balance — even if unfunded, explain what's available and what each needs to start. Deliver it conversationally in natural language — do not use tables or structured formats. Talk like you're advising a friend.
 
 ### Strategy → Skill Mapping
 
@@ -90,7 +90,7 @@ Use only strategies that are actually defined in the workspace. Do not invent un
 
 | Condition | Recommendation |
 |-----------|----------------|
-| Wallet unfunded or deployable capital < 25 USDC | No live strategy yet. Share all deposit addresses with chain-specific guidance (see Deposit Guidance below), suggest a practical starting amount, and keep the tone low-pressure. |
+| Wallet unfunded or deployable capital < 25 USDC | Still recommend all strategies with their minimum capital requirements so the user understands what's available. Then share deposit addresses with chain-specific guidance (see Deposit Guidance below) and suggest a practical starting amount. Do not block or gate-keep — the user should leave Step 2 knowing exactly what each strategy does and what it costs to start. |
 | Safe tier with 25-49 USDC | No passive yield strategy is deployable yet. Recommend funding to 50+ USDC for `byreal-idle-yield skill` or 200+ USDC for `byreal-stable-yield-farm skill`. `byreal-dca skill` should only be suggested if the user explicitly wants gradual market exposure despite the tier mismatch. `byreal-lp-copy-trading skill` remains a high-risk exception only. |
 | Safe tier with 50-199 USDC | Default by goal: `byreal-idle-yield skill` for passive yield on parked funds only when the wallet has remained idle long enough to satisfy that skill's idle-time requirement; otherwise recommend waiting or using `byreal-dca skill` only if the user explicitly wants gradual market exposure. `byreal-stable-yield-farm skill` should be deferred until 200+ USDC. `byreal-lp-copy-trading skill` should only be presented as a high-risk exception with explicit mismatch warning and clear user approval. |
 | Safe tier with >= 200 USDC | Default by goal: `byreal-idle-yield skill` for passive lending yield on parked capital only when the wallet has remained idle long enough to satisfy that skill's idle-time requirement, `byreal-stable-yield-farm skill` for lower-risk strategy yield, `byreal-dca skill` only if the user explicitly wants gradual market exposure. `byreal-lp-copy-trading skill` remains a high-risk exception only. |
