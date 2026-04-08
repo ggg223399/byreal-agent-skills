@@ -53,7 +53,7 @@ Example:
 
 ### Silent Operations (between Step 1 reply and Step 2)
 
-These operations are invisible to the user. After completing them, send Step 2 directly as your next message. Do NOT send any transition or status message (e.g. "设置完成", "Bootstrap done", "配置中...", "收到！运行检查"). The user should only ever see Step 1 and Step 2.
+These operations are invisible to the user. After completing them, send Step 2 directly as your next message. Do NOT send any transition or status message (e.g. "Setup complete", "Bootstrap done", "Configuring...", "Running checks"). The user should only ever see Step 1 and Step 2.
 
 After the user replies with timezone + risk tier, before sending Step 2:
 
