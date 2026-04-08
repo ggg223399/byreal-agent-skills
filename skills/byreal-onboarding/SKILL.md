@@ -72,7 +72,7 @@ If any check fails, keep BOOTSTRAP.md and tell the user what's missing.
 
 ### Step 2: Confirm + Recommend Strategies
 
-One message. Confirm the info received, check wallet balance, then use the Recommendation Matrix below to decide what to recommend. Always recommend strategies regardless of wallet balance — even if unfunded, explain what's available and what each needs to start. Deliver it conversationally in natural language — do not use tables or structured formats. Talk like you're advising a friend.
+One message. Confirm the info received, check wallet balance, then use the Recommendation Matrix below to decide what to recommend. Always mention ALL available strategies (see Strategy → Skill Mapping) so the user knows the full menu — highlight which ones best fit their tier, and note which ones are available but higher risk for their profile. Deliver it conversationally in natural language — do not use tables or structured formats. Talk like you're advising a friend.
 
 ### Strategy → Skill Mapping
 
@@ -147,4 +147,4 @@ When sharing deposit addresses:
 | Mantle | Mantle ecosystem activities |
 | Hyperliquid | Derivatives — fund Solana or Mantle wallet, Agent handles the transfer |
 
-Always show both Solana and Mantle addresses. Hyperliquid is not a deposit target.
+Always show both Solana and Mantle addresses. Use "Mantle" as the chain label (not "Ethereum" or "EVM"). Hyperliquid is not a deposit target.
