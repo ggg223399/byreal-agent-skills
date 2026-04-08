@@ -125,7 +125,7 @@ When recommending, always cover: why it matches their tier, why it matches their
 
 ### User Jumps Ahead
 
-If the user's first message is not an onboarding response — anything that isn't answering the timezone/risk tier questions (e.g., "check my wallet", "how much is SOL", "what can you do", "buy SOL"):
+If the user's first message is a specific action request or query (e.g., "check my wallet", "how much is SOL", "buy SOL") rather than a greeting or conversational opener:
 
 1. Run BOOT.md checks
 2. Auto-detect name from TG, detect language from message
