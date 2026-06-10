@@ -1,6 +1,6 @@
 ---
 name: byreal-polymarket
-version: 0.2.0
+version: 0.2.1
 display_name: Byreal Polymarket
 short_description: Byreal Polymarket workflows through byreal-cli.
 description: >-
@@ -159,7 +159,7 @@ Use when the user names a topic but not a concrete Event id.
 2. Run `byreal-cli polymarket event search --query <q> --limit <n> -o json`.
 3. If multiple candidates return, show title/end date/volume and ask the user to choose.
 4. If one candidate returns, fetch `byreal-cli polymarket event detail --event-id <id> -o json`.
-5. Summarize Event title, Market question, outcome labels/prices, volume, liquidity, end date, and tradability.
+5. Summarize Event title, Market question, outcome labels/prices, volume, liquidity, end date, and tradability. Do not show Event IDs, condition IDs, negRisk market IDs, token IDs, raw URLs, or raw JSON unless the user explicitly asks for technical details.
 
 ### Buy or sell an outcome
 
@@ -252,6 +252,7 @@ Asset: <asset>
 Amount: <amount>
 Source: <source wallet/account>
 Destination: <Polymarket account/proxy wallet>
+Deposit address: <truncated deposit address if returned>
 Network: <network>
 Fee: <fee or n/a>
 Estimated arrival: <eta or n/a>
@@ -323,7 +324,10 @@ If a CLI command returns a signature, order id, or operation id without an expli
 - Candidate lists default to title, end date, and volume.
 - Separate CLI facts from external context.
 - If using current sports, news, election, crypto, or other external facts for analysis, verify current sources and cite them separately. If the runtime has no external verification tool, say the external facts were not verified instead of telling the user to rely on the Polymarket quote alone.
-- Present prices as CLI quote snapshots. Avoid saying "the market believes the true probability is X%" without qualification; prefer "the current quote implies roughly X cents per $1 payout" or "this snapshot is probability-like, but not a verified forecast."
+- Present prices as CLI quote snapshots. Avoid saying "the market believes the true probability is X%" or labeling columns as "implied probability" without qualification; prefer "current quote", "price", or "roughly X cents per $1 payout". If showing percentages, say they are quote-derived, not verified forecasts.
+- Do not mention or quote internal files, rule names, skill versions, or implementation sources such as `SKILL.md`, `AGENTS.md`, `GLOSSARY`, "skill vX", or "previous tests" in user-facing replies. Translate those rules into plain product language.
+- Do not display full wallet addresses, proxy addresses, deposit addresses, transaction hashes, order IDs, event IDs, condition IDs, token IDs, or negRisk IDs by default. Truncate addresses and transaction/order identifiers when they are useful; hide technical market IDs unless debugging or explicitly requested.
+- Do not add external sports facts, team facts, schedule facts, or causal commentary that the CLI did not return unless you verify them from current sources. If the CLI only returned teams and prices, do not invent group composition or team context beyond those labels.
 
 ## Commands Reference
 
