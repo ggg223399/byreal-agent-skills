@@ -10,6 +10,10 @@ metadata:
     requires:
       bins:
         - byreal-cli
+    install:
+      - kind: node
+        package: "@byreal-io/byreal-cli-realclaw@v0.5.1-beta.0"
+        global: true
 ---
 
 # Byreal Polymarket
