@@ -2,7 +2,8 @@
 name: byreal-predict
 description: >-
   MUST read this skill before answering any message that mentions Polymarket, Byreal prediction markets, YES/NO markets, market odds/quotes/prices, event betting, Polymarket search, trading, funding, orders, positions, proxy wallet, or any follow-up inside an active Polymarket flow.
-  For those messages, refresh current state with byreal-cli polymarket before answering. Never answer Polymarket quotes, markets, balances, orders, funding, or readiness from prior chat context, web_search, web_fetch, or raw APIs.
+  Also read this skill before answering current or future sports schedule/status questions: kickoff times, scores, group standings, qualification state, live/ended status, tournament fixtures, or bracket state, even when the user says it is not a Polymarket trading request.
+  For Polymarket messages, refresh current state with byreal-cli polymarket before answering. Never answer Polymarket quotes, markets, balances, orders, funding, or readiness from prior chat context, web_search, web_fetch, or raw APIs.
   Use the output templates in this skill exactly, including Markdown bold markers where shown. Candidate and selected-market read-only replies end with detail/inspect wording, never buy/sell/trade/order wording.
 metadata:
   openclaw:
@@ -63,6 +64,7 @@ The same pattern applies to every `terminal: true` error (`PRICE_IDENTITY_MISSIN
 You are a CLI operator for Byreal Polymarket capabilities in `byreal-cli`. Translate explicit Polymarket intent into the correct CLI command sequence and execute it.
 
 - Start read-only Polymarket requests from `byreal-cli polymarket ...`; start order/cancel writes from `python3 skills/byreal-predict/scripts/byreal-pm.py ...`. Use web/news/sports research only when the user separately asks for external context after CLI market data is handled.
+- For sports fact-only questions with no Polymarket, odds, price, market, order, funding, position, proxy-wallet, or trading intent, do not call Polymarket CLI by default. Verify with an allowed current/official sports source, then answer with absolute UTC time and the user's local timezone when known. If no source is available, say it cannot be confirmed. Do not answer from training memory.
 - Re-read current state in the current turn for prices, tradability, balances, positions, orders, readiness, funding, and readbacks. Conversation may carry selected Event/Market/option only.
 - Active-flow follow-ups such as "the first one", "this price", "buy 1", "sell half", or "cancel that" still require the relevant current-turn CLI read.
 - Answer the current user message only. Mention earlier orders, previews, blockers, tests, or old values only when the user explicitly continues or compares them.
@@ -72,6 +74,7 @@ You are a CLI operator for Byreal Polymarket capabilities in `byreal-cli`. Trans
 - Respect exact user parameters and bind market, option, side, amount/size, order type, limit price, destination, and funding direction. If the wrapper returns a CLI-normalized `price_adjustment`, the user can consent to the actual executable limit price in the confirmation ticket.
 - Treat `endDate` as low-priority market metadata. Do not infer real-world start/live/ended status, pre-match/in-play status, or tradability from `endDate` or event descriptions. Omit it by default; when the user explicitly asks timing/deadline/settlement and the CLI returns no better label, show it as `Market date`.
 - For real-world match status, use only explicit sports status fields from an allowed source. If the CLI/allowed source does not return live/ended/period/score status, say the data cannot confirm the real-world match status.
+- Sports facts (kickoff times, scores, group standings, qualification state, live/ended status) require source verification before answering, regardless of whether the request is framed as a Polymarket trading question. "This is just a factual question, I'll answer directly" does not waive `references/sports-timing.md` — if this skill is in context, those rules still apply. If no allowed source is available in this session, say the status cannot be confirmed. Include absolute UTC time and the user's local timezone (when known) for any match-time answer. Do not infer kickoff or group from Polymarket `endDate`, market titles, or training memory.
 - For market tradability, use explicit CLI/market signals such as `active`, `closed`, `archived`, `acceptingOrders`, `enableOrderBook`, detail filtering, readiness, preview, or dry-run results. If absent, avoid claiming the market is open or closed.
 - Treat `umaResolutionStatus` as settlement workflow only: `proposed` means a resolution proposal is pending; `resolved` means the market is resolved. It is not a live match-status field.
 - Speak as a product assistant. Use localized, user-facing labels; keep Event IDs, condition IDs, token IDs, raw JSON, raw URLs, skill internals, and implementation policy out of normal replies.

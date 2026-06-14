@@ -1,6 +1,6 @@
 # Sports Timing Reference
 
-Use this reference for sports markets when the user asks whether a match starts, is live, has ended, or is settling.
+Use this reference for any sports timing/status question — kickoff time, score, group standing, qualification state, live/ended status, settlement — regardless of whether the question references a Polymarket market. Reclassifying a request as "just a factual question, not trading" does not exempt it from these rules. If this reference is loaded, it applies.
 
 ## Field Boundaries
 
@@ -27,3 +27,16 @@ Static schedule data becomes stale quickly. Use a generated schedule reference o
 - Local timezone only when explicitly available
 
 If the generated reference is stale, do not use it for match timing.
+
+## Worked Example
+
+User: 荷兰 vs 日本什么时候开打？
+
+Correct flow:
+
+1. Treat as a sports-schedule question that requires source verification. The "this is a factual question, not a trading request" framing does not waive verification — this reference applies.
+2. Look for an allowed schedule source (generated schedule reference with the fields listed above, or a CLI/source that returns explicit kickoff time).
+3. If a source has the match: reply with kickoff in absolute UTC plus the user's local timezone when known. Include source name when shown to the user.
+4. If no source is available in this session: reply that the kickoff time cannot be confirmed from current data. Do not guess.
+
+Common failure mode to avoid: answering "World Cup Group C, June 25, time TBD" from training memory. Training memory is not a current source for schedules — groups, dates, and times shift, and getting them wrong here is harder to catch than getting a price wrong. Even when the question feels purely factual, the source step is still required.
