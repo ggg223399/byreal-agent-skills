@@ -5,6 +5,7 @@ description: >-
   Also read this skill before answering current or future sports schedule/status questions: kickoff times, scores, group standings, qualification state, live/ended status, tournament fixtures, or bracket state, even when the user says it is not a Polymarket trading request.
   Reply in the user's language. Localize all prose and template labels to that language. Keep source names, market titles, IDs, prices, and official team names unchanged when no widely-used localized form exists.
   For Polymarket messages, refresh current state with byreal-cli polymarket before answering. Never answer Polymarket quotes, markets, balances, orders, funding, or readiness from prior chat context, web_search, web_fetch, or raw APIs.
+  Polymarket order support is limited to market (FOK) and limit (GTC). Stop-loss, stop-limit, take-profit, trailing-stop, OCO, bracket, conditional, and any other order type are unsupported; reply in the user's language using the unsupported-order shape, do not call CLI/tools, and do not create a preview, ticket, substitute market/limit order, workaround, alternative, or next-step prompt.
   For sports fact-only messages, verify with an official/current source before answering and use exactly one compact localized ticket: bold match title, optional blank line, then five plain label-value lines for UTC kickoff, user's local time when known, competition, venue, and source. Translate labels to the user's language, but keep the line order and content types. The only Markdown allowed is the bold match title. Never output pipe characters `|`, Markdown tables, emoji/icons, bullets, countdowns, today/tonight/tomorrow labels, rankings, history, analysis, or live/started/ended claims unless explicit live-status fields are returned.
   Use the output templates in this skill exactly, including Markdown bold markers where shown. Candidate and selected-market read-only replies end with detail/inspect wording, never buy/sell/trade/order wording.
 metadata:
@@ -83,6 +84,7 @@ You are a CLI operator for Byreal Polymarket capabilities in `byreal-cli`. Trans
 - Treat market prices as tradable prices, not verified probabilities. Lists show natural-language options with `Price: $X`; explain `$1` payout mechanics only when asked.
 - Classify read-only prompts before replying: leader, price explanation, availability, no direct market, candidate list, selected market, portfolio/order, or account overview. Use the matching template in `Output Rules`.
 - Order and cancel writes go through the wrapper: `byreal-pm <kind> ticket` -> confirmation message -> stop -> `byreal-pm <kind> exec --ticket <id>` on user confirm. The wrapper bundles preview/dry-run + execute + status/active-orders readback into two calls, enforces a single 60s pending ticket, and destroys the ticket on any CLI rejection. Invoke as `python3 skills/byreal-predict/scripts/byreal-pm.py ...` (do not try bare `byreal-pm`). `byreal-cli polymarket order preview`, `order place`, and `order cancel` are wrapper-internal — never call them directly, even to inspect or recover. Funding writes still use direct CLI `funding deposit/withdraw --dry-run` -> confirm -> `--execute` -> `funding status`.
+- Supported order types are only market (FOK) and limit (GTC). For stop-loss, stop-limit, take-profit, trailing-stop, OCO, bracket, conditional, or any other order type, reply with `Unsupported order type shape`. Stop there; do not call CLI/tools, simulate the requested order with a different order type, create a ticket, suggest alternatives, or add a next-step prompt.
 - If a wrapper error returns `assistant_message` or `terminal:true`, send the `assistant_message` verbatim as the whole reply and stop. Do not translate, paraphrase, localize, or rephrase it. If a localized version is needed, the wrapper's `assistant_message` is the source of truth; treat its English wording as final. Do not run more commands. Do not add confirmations, replacement parameters, extra market prices, wallet blockers, or next-step prompts.
 - If the wrapper returns `price_adjustment`, render a confirmation ticket that clearly shows both the user's requested limit price and the actual executable limit price. This is not a terminal error; it is a consent checkpoint. Execute only after the user confirms that adjusted ticket.
 - Treat "yes", "go", and "confirm" as execution approval only when the immediately previous assistant message has exactly one pending confirmation (a wrapper ticket id or a funding dry-run) and the user adds no changed parameter.
@@ -241,16 +243,17 @@ For empty sections, use direct status lines such as `No active orders.` or `No p
 ### Buy Or Sell Outcome
 
 1. Resolve Event -> Market -> outcome.
-2. Proxy wallet preflight. For buys, read `byreal-cli polymarket funding balance -o json` when balance is relevant. For sells, read `byreal-cli polymarket portfolio read -o json` and stop if requested size exceeds `sellable_size`.
-3. Create the ticket via the wrapper (runs preview/dry-run internally):
+2. If the user requested any unsupported order type (stop-loss, stop-limit, take-profit, trailing-stop, OCO, bracket, conditional, or anything other than market/limit), reply with `Unsupported order type shape` and stop before any CLI/tool call, proxy preflight, market read, portfolio read, preview, or ticket.
+3. Proxy wallet preflight. For buys, read `byreal-cli polymarket funding balance -o json` when balance is relevant. For sells, read `byreal-cli polymarket portfolio read -o json` and stop if requested size exceeds `sellable_size`.
+4. Create the ticket via the wrapper (runs preview/dry-run internally):
    - Market: `byreal-pm order ticket --token-id <id> --condition-id <id> --side <buy|sell> --order-type market [--amount <usd> | --size <shares>] [--slippage-bps <n>]`
    - Limit:  `byreal-pm order ticket --token-id <id> --condition-id <id> --side <buy|sell> --order-type limit --price <p> --size <n>`
 
    Returns `{ok, ticket_id, expires_at, preview, price_adjustment?}`. The `preview` block is the raw CLI snapshot — use its fields to render the trade ticket from the skeleton below.
-4. Before rendering, enforce manual trade limits when wallet/NAV data is available; if the requested notional exceeds the runtime cap, stop for explicit override. If `preview` shows insufficient liquidity, `fully_fills=false`, high price impact, stale data, or missing balance, surface the blocker instead of implying a clean fill.
-5. Render the trade ticket and stop. If `price_adjustment` is present, include a clear line such as `**Limit Price**: requested $0.155 -> actual $0.16`; the user's later "confirm" means consent to the actual executable price. Do not call `byreal-cli polymarket order place` directly.
-6. On user confirmation: `byreal-pm order exec --ticket <id>`. Returns `{ok, submitted, order_id, execute_result, post_state, post_state_error}` where `post_state` is the `order status` readback when an order id was returned. Report submitted evidence first; if `post_state_error` is present, say the order was submitted but the status readback failed.
-7. On wrapper error: `terminal:true` codes such as `PRICE_IDENTITY_MISSING` follow `Wrapper Terminal Reply` — send `assistant_message` verbatim, stop. `CLI_REJECTED` surfaces the CLI error in plain language and stops; do not retry with adjusted parameters (`Trading-Loop Discipline`). `TICKET_EXPIRED` / `TICKET_NOT_FOUND` re-create from step 3. `TICKET_KIND_MISMATCH` means another write is pending — resolve it first.
+5. Before rendering, enforce manual trade limits when wallet/NAV data is available; if the requested notional exceeds the runtime cap, stop for explicit override. If `preview` shows insufficient liquidity, `fully_fills=false`, high price impact, stale data, or missing balance, surface the blocker instead of implying a clean fill.
+6. Render the trade ticket and stop. If `price_adjustment` is present, include a clear line such as `**Limit Price**: requested $0.155 -> actual $0.16`; the user's later "confirm" means consent to the actual executable price. Do not call `byreal-cli polymarket order place` directly.
+7. On user confirmation: `byreal-pm order exec --ticket <id>`. Returns `{ok, submitted, order_id, execute_result, post_state, post_state_error}` where `post_state` is the `order status` readback when an order id was returned. Report submitted evidence first; if `post_state_error` is present, say the order was submitted but the status readback failed.
+8. On wrapper error: `terminal:true` codes such as `PRICE_IDENTITY_MISSING` follow `Wrapper Terminal Reply` — send `assistant_message` verbatim, stop. `CLI_REJECTED` surfaces the CLI error in plain language and stops; do not retry with adjusted parameters (`Trading-Loop Discipline`). `TICKET_EXPIRED` / `TICKET_NOT_FOUND` re-create from step 4. `TICKET_KIND_MISMATCH` means another write is pending — resolve it first.
 
 Trade ticket uses this skeleton. Keep it compact; show balance/account only when it changes the decision or blocks the order. Do not use Markdown tables or emoji in trade tickets; every field is a separate `**Label**: value` line. Use `**Note**:` for blockers or caveats.
 
@@ -315,6 +318,17 @@ Cannot place this order yet
 <plain-language reason>
 
 ```
+
+Unsupported order type shape:
+
+```text
+**Unsupported order type**
+
+Byreal Polymarket currently supports only market orders and limit orders.
+<requested order type> orders are not supported.
+```
+
+Localize labels and sentences to the user's language. Do not add alternatives, explanations of how to approximate the order, market/portfolio lookups, or follow-up prompts.
 
 ### Cancel Orders
 
