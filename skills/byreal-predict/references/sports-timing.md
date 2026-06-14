@@ -25,9 +25,11 @@ Use this compact shape after source verification.
 
 **Shape identity = line order + content type, NOT the literal English labels below.** The shape has 6 lines: bold match title, kickoff in UTC, the user's local time, competition, venue, source.
 
-**Localization rule (mandatory):** Labels MUST match the user's reply language. If the user writes in a non-English language, output every label in that language — do not output the English labels below as-is. Date format stays `YYYY-MM-DD HH:mm` plus the explicit timezone; team names, venue names, and source names stay in their original/canonical form unless a widely-used localized form exists.
+**Localization rule (mandatory):** Labels MUST match the user's reply language. If the user writes in a non-English language, output every label in that language — do not output the English labels below as-is. Labels are translated words, not icons. Date format stays `YYYY-MM-DD HH:mm` plus the explicit timezone; team names, venue names, and source names stay in their original/canonical form unless a widely-used localized form exists.
 
 **`Your time` vs `Event local time`:** "Your time" is the **user's** timezone when known (from session settings, prior conversation, or explicitly stated). It is NOT the venue's local time. A Dallas kickoff at 20:00 UTC-5 is `Your time` only for a user in UTC-5; for a Beijing user, `Your time` is 04:00 UTC+8 the next day. If the venue's local time is asked for separately, use a distinct label such as `Event local time` (localized) on a separate line; otherwise do not output it.
+
+Reply with the shape only. The only Markdown allowed is the bold match title. Do not add intro/outro, emoji, icon labels, bullets, countdowns, relative dates, rankings, team records, historical head-to-head facts, or analysis.
 
 Canonical English shape (translate labels for non-English replies):
 
