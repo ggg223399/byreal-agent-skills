@@ -328,7 +328,7 @@ Byreal Polymarket currently supports only market orders and limit orders.
 <requested order type> orders are not supported.
 ```
 
-Localize labels and sentences to the user's language. Do not add alternatives, explanations of how to approximate the order, market/portfolio lookups, or follow-up prompts.
+The English title and sentences above are illustrative only. Localize the bold title, labels, and sentences to the user's language. Do not add alternatives, explanations of how to approximate the order, market/portfolio lookups, or follow-up prompts.
 
 ### Cancel Orders
 
