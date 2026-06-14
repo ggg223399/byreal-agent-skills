@@ -67,6 +67,9 @@ Binary YES/NO prices settle as complementary outcomes, but displayed quotes do n
 | Active/tradable | Market can currently accept orders. | Confirm before preview/order. |
 | Closed/archived | Market/Event is no longer tradable or not visible. | Do not route new orders. |
 | Accepting orders | Polymarket flag for order placement availability. | Treat false as non-tradable. |
+| Market date / endDate | Polymarket/Gamma metadata date returned on Events or Markets. | Low-priority metadata only. Do not use it to infer real-world start/live/ended status or tradability. Show only when the user asks timing/deadline/settlement. |
+| UMA resolution status | Polymarket settlement workflow state such as proposed or resolved. | `proposed` means a resolution proposal is pending; `resolved` means the market resolved. It is not a sports live-status field. |
+| Sports live status | Real-world match state such as live, ended, period, elapsed, or score. | Use only when explicitly returned by an allowed source. REST Event detail without live-status fields cannot confirm whether a match is in progress. |
 | Liquidity | Available trading depth. | Use in user summaries and caution on thin markets. |
 | Volume | Historical traded amount. | Useful for candidate ranking, not a guarantee of current liquidity. |
 | Active order filters | Filters for listing or scoped cancellation of active orders. | `order active` can filter by `--market <conditionId>` and `--asset-id <tokenId>`. `order_id` is for status or exact cancellation, not for listing active orders. |

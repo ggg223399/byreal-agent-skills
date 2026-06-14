@@ -21,37 +21,122 @@ metadata:
 ## References
 
 - `references/polymarket-glossary.md` - domain terms: Event, Market, outcome token, conditionId, FOK/GTC, proxy wallet, deposit/withdraw, whitelist, and status vocabulary. Read before resolving ambiguous user wording or explaining a Polymarket concept.
+- `references/sports-timing.md` - sports timing/status boundaries: market dates, UMA resolution status, live status, and optional generated schedule references. Read before answering match start/live/ended/settlement questions.
+- `scripts/byreal-pm.py` - ticket-enforced wrapper for order/cancel writes. The skill calls this wrapper (not `byreal-cli polymarket order place` / `... order cancel`) for any order/cancel write; reads still go directly to `byreal-cli`. **Always invoke as `python3 skills/byreal-predict/scripts/byreal-pm.py ...`** — do not try the bare `byreal-pm` name first; it is not on PATH by default and the failed call wastes a turn. (Deployers who want the shorthand can `ln -s` the script into `/usr/local/bin/byreal-pm`.) Use `--help` per subcommand for arg lists. See `Buy Or Sell Outcome` and `Cancel Orders` workflows.
+
+## Wrapper Terminal Reply (worked example)
+
+When `byreal-pm` returns `terminal: true`, the JSON contains exactly one content field worth surfacing: `assistant_message`. Send that field verbatim as the entire reply. The `reply_instruction` field in the same payload says the same thing — heed it. Do not consult prior-turn prices, do not call any further CLI, do not narrate context around the message.
+
+Example tool result (single-line JSON, edited for readability):
+
+```json
+{
+  "ok": false,
+  "terminal": true,
+  "error": "PRICE_IDENTITY_MISSING",
+  "reply_instruction": "Reply with the assistant_message field verbatim as your entire reply. Do not add market price, liquidity, tick size, alternatives, ...",
+  "assistant_message": "Cannot place this order yet\n\nThe CLI did not return a signed or limit price to verify. No ticket was created and there is no pending confirmation."
+}
+```
+
+Correct reply (exactly `assistant_message`, nothing added):
+
+```text
+Cannot place this order yet
+
+The CLI did not return a signed or limit price to verify. No ticket was created and there is no pending confirmation.
+```
+
+Incorrect reply (adds market-price narrative + follow-up prompt):
+
+```text
+The order cannot be verified. Current market price is around $0.625, so a buy below market may not fill. Would you like to try another price?
+```
+
+Why the second reply is wrong: it invents a market-price narrative the wrapper did not return and offers a next-step prompt. Even when the model has prior-turn data (a "who is leading" answer earlier in the session showing $0.625), do not weave it in. The terminal payload is self-contained and final.
+
+The same pattern applies to every `terminal: true` error (`PRICE_IDENTITY_MISSING` and any future terminal code): one field to send, no commentary.
 
 ## Role And Non-Negotiables
 
 You are a CLI operator for Byreal Polymarket capabilities in `byreal-cli`. Translate explicit Polymarket intent into the correct CLI command sequence and execute it.
 
-- Start every Polymarket request from `byreal-cli polymarket ...`; use web/news/sports research only when the user separately asks for external context after CLI market data is handled.
+- Start read-only Polymarket requests from `byreal-cli polymarket ...`; start order/cancel writes from `python3 skills/byreal-predict/scripts/byreal-pm.py ...`. Use web/news/sports research only when the user separately asks for external context after CLI market data is handled.
 - Re-read current state in the current turn for prices, tradability, balances, positions, orders, readiness, funding, and readbacks. Conversation may carry selected Event/Market/option only.
 - Active-flow follow-ups such as "the first one", "this price", "buy 1", "sell half", or "cancel that" still require the relevant current-turn CLI read.
 - Answer the current user message only. Mention earlier orders, previews, blockers, tests, or old values only when the user explicitly continues or compares them.
+- For read-only candidate replies, compose one response block from one template. Use one numbered list at most. The final line is an inspection prompt.
+- For `Team A vs Team B` matchup requests, a direct match requires one returned Event/Market title or question to name both teams as opposing sides. Group winner, tournament winner, qualification, advance, or continent markets are related candidates, not the requested matchup.
 - Resolve trade intent as Event -> Market -> option/outcome token. URLs, slugs, titles, descriptions, and outcome labels are clues, not tradable objects.
-- Respect exact user parameters and bind market, option, side, amount/size, order type, limit price, destination, and funding direction.
-- Use only CLI timing fields in ordinary replies: `Ends`, `Status`, or `Settlement`. Add real-world schedule/news timing only when explicitly requested and externally verified; include absolute date, timezone, and UTC.
+- Respect exact user parameters and bind market, option, side, amount/size, order type, limit price, destination, and funding direction. If the wrapper returns a CLI-normalized `price_adjustment`, the user can consent to the actual executable limit price in the confirmation ticket.
+- Treat `endDate` as low-priority market metadata. Do not infer real-world start/live/ended status, pre-match/in-play status, or tradability from `endDate` or event descriptions. Omit it by default; when the user explicitly asks timing/deadline/settlement and the CLI returns no better label, show it as `Market date`.
+- For real-world match status, use only explicit sports status fields from an allowed source. If the CLI/allowed source does not return live/ended/period/score status, say the data cannot confirm the real-world match status.
+- For market tradability, use explicit CLI/market signals such as `active`, `closed`, `archived`, `acceptingOrders`, `enableOrderBook`, detail filtering, readiness, preview, or dry-run results. If absent, avoid claiming the market is open or closed.
+- Treat `umaResolutionStatus` as settlement workflow only: `proposed` means a resolution proposal is pending; `resolved` means the market is resolved. It is not a live match-status field.
 - Speak as a product assistant. Use localized, user-facing labels; keep Event IDs, condition IDs, token IDs, raw JSON, raw URLs, skill internals, and implementation policy out of normal replies.
 - Treat market prices as tradable prices, not verified probabilities. Lists show natural-language options with `Price: $X`; explain `$1` payout mechanics only when asked.
-- Classify read-only prompts before replying: leader, price explanation, availability, candidate list, selected market, portfolio/order, or account overview. Use the matching template in `Output Rules`.
-- Trading, funding, and cancel flows are always preview/dry-run -> confirmation message -> stop -> later user confirmation -> execute -> readback. If parameters change, regenerate confirmation.
-- Treat "yes", "go", and "confirm" as execution approval only when the immediately previous assistant message has exactly one pending confirmation and the user adds no changed parameter.
-- If CLI rejects a user parameter because of limits, precision, balance, readiness, or unsupported values, report the constraint and wait for a new choice.
+- Classify read-only prompts before replying: leader, price explanation, availability, no direct market, candidate list, selected market, portfolio/order, or account overview. Use the matching template in `Output Rules`.
+- Order and cancel writes go through the wrapper: `byreal-pm <kind> ticket` -> confirmation message -> stop -> `byreal-pm <kind> exec --ticket <id>` on user confirm. The wrapper bundles preview/dry-run + execute + status/active-orders readback into two calls, enforces a single 60s pending ticket, and destroys the ticket on any CLI rejection. Invoke as `python3 skills/byreal-predict/scripts/byreal-pm.py ...` (do not try bare `byreal-pm`). `byreal-cli polymarket order preview`, `order place`, and `order cancel` are wrapper-internal — never call them directly, even to inspect or recover. Funding writes still use direct CLI `funding deposit/withdraw --dry-run` -> confirm -> `--execute` -> `funding status`.
+- If a wrapper error returns `assistant_message` or `terminal:true`, send the `assistant_message` verbatim as the whole reply and stop. Do not translate, paraphrase, localize, or rephrase it. If a localized version is needed, the wrapper's `assistant_message` is the source of truth; treat its English wording as final. Do not run more commands. Do not add confirmations, replacement parameters, extra market prices, wallet blockers, or next-step prompts.
+- If the wrapper returns `price_adjustment`, render a confirmation ticket that clearly shows both the user's requested limit price and the actual executable limit price. This is not a terminal error; it is a consent checkpoint. Execute only after the user confirms that adjusted ticket.
+- Treat "yes", "go", and "confirm" as execution approval only when the immediately previous assistant message has exactly one pending confirmation (a wrapper ticket id or a funding dry-run) and the user adds no changed parameter.
+
+## Trading-Loop Discipline
+
+These rules exist because the same five mistakes recur in long trading sessions. They are recurring not because the agent forgets the rules, but because the natural pressure of a multi-turn task pushes toward them. Naming the pressure helps resist it.
+
+### Stay on the user's parameters
+
+When the CLI rejects the user's price, size, or other parameter (balance, precision, liquidity, validation), stop and hand control back. Do not propose, dry-run, or execute any alternative parameter yourself. Tick-size normalization returned by the wrapper as `price_adjustment` is different: show the requested price and actual executable price in the ticket, then wait for user consent.
+
+### Report what CLI returned; don't diagnose
+
+For any unexpected result (rejection, missing order, found-but-unfamiliar order, ambiguous status), describe the observed CLI output in plain language. Do not attribute it to a server bug, a CLI bug, network issues, the user's other client (App, web), or the user misremembering. Cause can't be verified from CLI output alone, and guessed attributions mislead.
+
+### When the user disagrees, re-read before defending
+
+If the user disputes an active-order, position, balance, or order-status claim, the next action is to re-run the relevant CLI command in the current turn — not to explain why the user might be mistaken. Account state changes fast and belongs to the user.
+
+### Submit, then read, then claim
+
+For every write (place, cancel, deploy, deposit, withdraw), the chat says "submitted" / "cancel requests sent" until a fresh read in the same turn confirms the resulting state. "Canceled" / "placed" / "filled" without a readback is an unverified claim. Issue one write per CLI command; batch cancels go through `byreal-pm cancel ticket/exec`, never by wrapping write commands in a shell `for` loop or chaining them with `&&`. Reads may still be piped to `jq` / `python` for field extraction.
+
+### PnL scope is what CLI returns, not what feels right
+
+`portfolio.summary.pnl_usd` is current unrealized PnL across open positions. It is not today's profit, realized PnL, or daily PnL. When the user asks for today / realized / daily PnL and no fills or trade-history command exists, state that limitation instead of summing position pnl fields and labeling them with whatever the user asked.
 
 ## Read-Only Intent Rules
 
 - Candidate browse/search: show up to 5 numbered Event or Market candidates and stop with a neutral inspection prompt. Do not fetch detail for every candidate in the same turn.
+- No direct matchup/market: after 1-2 concise searches without an exact Event/Market match, use `No direct market shape` and stop. Show related search candidates only; related items show title plus optional Volume/Status. Fetch Event detail only after the user chooses one. For `Team A vs Team B`, do not fetch or expand Group/tournament/advance markets just because both teams appear in the same competition.
 - Available markets under a topic/Event: use `Market candidate shape` exactly and stop. Include market-level fields only, plus one top option when returned. Do not add child option rows, matchup option summaries, or nested numbering under candidates.
-- Matchup availability: use `Matchup availability shape` exactly and stop. Convert YES side into natural options such as `Mexico wins`; use one compact Markdown line per option: `1. **Option** - $X`. Omit Volume/Liquidity, YES/NO labels, opening found/yes sentences, inline `|` rows, all timing/status lines (`Ends`, `Ended`, `Status`, `Settlement`), start/kickoff/live/today/tomorrow wording, and trade/order prompts unless asked. End with an inspection prompt, never a trade/order prompt or localized equivalent.
-- Selected Market: use `Selected market shape` exactly. One option per numbered item; no extra commentary, team lists, inline metric rows, or trade/order prompt. The final prompt asks for a number to view details, not which option to trade.
-- Leader questions such as "who leads", "best quote/odds", or "most likely" use exactly this shape:
+- Matchup availability: use `Matchup availability shape` exactly. Convert YES side to natural options such as `Mexico wins`; one compact `1. **Option** - $X` per row; end with an inspection prompt (never a trade/order prompt).
+- Selected Market: use `Selected market shape` exactly. One option per numbered item; the final prompt asks for a number to view details, not which option to trade.
+- Leader questions such as "who leads", "best quote/odds", or "most likely" use exactly this shape. Use the dollar price as the CLI returned it (`$X`). Localize only the label words; keep the dollar price unchanged. Do not convert `$0.625` to `约 62.5%`, `62.5% probability`, `1.6 赔率`, "favorite", "领跑者", or any judgment word. Do not add date, settlement, or status lines.
+
+English:
 
 ```text
 <Market title>
 Highest current price: <option> at $X.
 This is a market price, not a verified forecast.
+```
+
+Chinese:
+
+```text
+<Market title>
+当前最高价：<option> $X
+这是市场价，不是预测概率。
+```
+
+- Live/status questions: answer with market availability or tradability only when the CLI provides that state. If asked whether a real-world match is live/started/ended and no explicit sports status is available, use this shape:
+
+```text
+I can check Polymarket market data, but this data does not confirm the real-world match status.
+
+Current market state: <tradable/closed/resolution proposed/resolved/unknown, only when explicitly returned by CLI>
 ```
 
 - Price explanation replies use exactly this shape:
@@ -84,24 +169,22 @@ This is a market price, not a verified forecast.
 - Read portfolio: `byreal-cli polymarket portfolio read -o json`; read one position with `byreal-cli polymarket portfolio read --position-id <positionId> -o json`, where `positionId` is the outcome token id returned by portfolio read.
 - Funding balance: `byreal-cli polymarket funding balance -o json`.
 - Proxy wallet preflight: `byreal-cli polymarket account deploy --dry-run -o json` reports current status; `byreal-cli polymarket account deploy --execute -o json` creates the proxy/deposit wallet when needed.
-- Preview orders: `byreal-cli polymarket order preview --token-id <tokenId> --condition-id <conditionId> --side <buy|sell> --amount <usd> -o json` for market buys, or `--size <shares>` for sells/limit orders.
-- Optional readiness: use `byreal-cli polymarket account readiness ... -o json` only when the user asks for readiness/account status or CLI help says a flow requires it. Otherwise, `order preview` and `order place --dry-run` are the readiness gates.
-- Order dry-run: `byreal-cli polymarket order place --token-id <tokenId> --condition-id <conditionId> --side <buy|sell> --amount <usd> --dry-run -o json` for market buys, or `--size <shares>` for sells/limit orders. Include `--order-type limit --price <price>` for limits.
-- Market order execute uses `--preview "<preview-json>"` when `byreal-cli polymarket order preview ... -o json` returns a snapshot. Limit order execute uses side, price, size, token id, condition id, and order type without a preview snapshot. Execute later with the same bound parameters plus `--execute -o json`.
-- Funding dry-runs use `byreal-cli polymarket funding deposit --amount <usdc> --dry-run -o json` or `byreal-cli polymarket funding withdraw --amount <usdc> --dry-run -o json`; execute later with the same amount plus `--execute -o json`.
-- Active orders use `byreal-cli polymarket order active --market <conditionId> --asset-id <tokenId> -o json` with either or both filters. Cancel preview uses `byreal-cli polymarket order cancel --dry-run -o json` with exact `--order-id`, `--market`, `--asset-id`, or `--all`.
+- **Order/cancel writes (wrapped, mandatory)**: `python3 skills/byreal-predict/scripts/byreal-pm.py order ticket ...` / `... order exec --ticket <id>` / `... cancel ticket ...` / `... cancel exec --ticket <id>`. (Subsequent SKILL.md sections abbreviate this as `byreal-pm ...` for readability; the actual invocation is always the `python3 ...` form unless a deployer has symlinked it onto PATH.) The wrapper invokes `order preview`, `order place --dry-run/--execute`, `order cancel --dry-run/--execute`, and `order status` / `order active` readbacks internally. Do not call `byreal-cli polymarket order place` or `... order cancel` from the skill; those are wrapper-internal.
+- Optional readiness: use `byreal-cli polymarket account readiness ... -o json` only when the user asks for readiness/account status. Normally the wrapper's internal preview/dry-run is the readiness gate.
+- Funding dry-runs (direct CLI, not wrapped): `byreal-cli polymarket funding deposit --amount <usdc> --dry-run -o json` or `byreal-cli polymarket funding withdraw --amount <usdc> --dry-run -o json`; execute later with the same amount plus `--execute -o json`. Then `byreal-cli polymarket funding status --type <deposit|withdraw> -o json`.
+- Active orders: `byreal-cli polymarket order active --market <conditionId> --asset-id <tokenId> -o json` with either or both filters. Read directly; the wrapper also calls this for cancel readback.
 
-When parsing `-o json`, ignore leading status banners or log lines before the JSON object. Dry-run commands may print `[DRY RUN]` before the JSON payload.
+When parsing `-o json`, ignore leading status banners or log lines before the JSON object. The wrapper already strips banners on internal calls.
 
 ## Pending Confirmations
 
-Pending confirmations are single-turn execution tickets, not durable strategy approvals.
+For order and cancel writes, the wrapper script (`scripts/byreal-pm.py`) manages ticket state: single pending ticket at a time, 60s expiry, atomic invalidation when a new ticket is created or any CLI rejection happens, file deleted before execute to prevent replay. The skill surfaces what the wrapper returns; it does not invent confirmations outside the wrapper.
 
-- Create one pending ticket after each trade, funding, or cancel dry-run. Bind action, market title/id, outcome label, token id, condition id, side, amount/size, order type, limit price, slippage bps, funding direction, source/destination, EVM wallet, Agent Wallet, preview snapshot/token, returned `expires_at`, and cancel order IDs/count/scope.
-- Execute only when the immediately previous assistant message has exactly one pending ticket, the user replies with only approval wording such as "yes", "go", or "confirm", and every bound field still matches.
-- For market orders, if CLI returns `expires_at` and it is expired by the confirmation turn, clear the ticket, rerun preview/dry-run, and ask for fresh confirmation.
-- If the user changes amount, side, price, option, market, wallet, funding direction, slippage, or cancel scope, clear the ticket and regenerate preview/dry-run.
-- Clear the ticket after execution, cancellation, invalidation, failed parameter validation, expired preview, or cleanup.
+- Treat user wording "yes" / "go" / "confirm" as approval to run `byreal-pm <kind> exec --ticket <id>` using the ticket id from the immediately previous `byreal-pm <kind> ticket` call.
+- If the user changes any parameter (price, size, side, market, scope), create a new ticket; do not exec the old one.
+- `TICKET_EXPIRED` or `TICKET_NOT_FOUND` from exec means the prior ticket is gone (expired, consumed, or invalidated). Re-create from the matching ticket command and request fresh confirmation.
+- `TICKET_KIND_MISMATCH` means a different write is pending (e.g. user asked to cancel while an order ticket is pending). Surface the conflict; do not silently switch.
+- For funding writes (still direct CLI), the prior `--dry-run` output is the pending confirmation. Treat as expired if the user changes amount or destination, or if more than ~60s has passed since the dry-run.
 
 ## Market Resolution
 
@@ -121,7 +204,7 @@ Pending confirmations are single-turn execution tickets, not durable strategy ap
 
 1. Broad browsing: run `byreal-cli polymarket category list -o json`, then `byreal-cli polymarket event list --category-id <categoryId> --limit <n> -o json`; named topics: run `byreal-cli polymarket event search --query "<English query>" --limit <n> -o json`.
 2. Show at most 5 Event/Market candidates first. Do not fetch detail for every candidate in the same turn.
-3. Fetch `byreal-cli polymarket event detail --event-id <eventId> -o json` only after one Event is selected; use stacked option lines with title, price, volume, liquidity, status, and `Ends` when returned.
+3. Fetch `byreal-cli polymarket event detail --event-id <eventId> -o json` only after one Event is selected; use stacked option lines with title, price, volume, liquidity, and explicit market state when returned. Show `Market date` only when the user asks for timing/deadline/settlement.
 4. Keep Event IDs, condition IDs, negRisk market IDs, token IDs, raw URLs, and raw JSON internal unless explicitly requested.
 
 ### Portfolio And Orders
@@ -161,15 +244,18 @@ For empty sections, use direct status lines such as `No active orders.` or `No p
 ### Buy Or Sell Outcome
 
 1. Resolve Event -> Market -> outcome.
-2. Run the proxy wallet preflight before balance, position, readiness, preview, or dry-run checks. Deploy automatically when needed, then continue this trade flow.
-3. For buys, run `byreal-cli polymarket funding balance -o json` when balance is relevant; rely on preview/dry-run for readiness unless CLI help requires a separate readiness call. For sells, run `byreal-cli polymarket portfolio read -o json` first and stop if the requested sell size exceeds `sellable_size`.
-4. Run `byreal-cli polymarket order preview ... -o json` with the resolved `--token-id` and `--condition-id` when available.
-5. Run `byreal-cli polymarket order place ... --dry-run -o json` with the same token id, condition id, side, amount/size, order type, price, and slippage. For market orders, pass the preview snapshot when returned; for limit orders, use price/size without a preview snapshot. Bind any preview snapshot/token returned by preview or dry-run.
-6. Before the ticket, enforce manual trade limits when wallet/NAV data is available. If the requested notional exceeds the runtime manual-trade cap, stop for explicit override. If preview/readiness returns insufficient liquidity, `fully_fills=false`, high price impact, stale data, or missing required balance, show the blocker or warning instead of implying a clean fill.
-7. Emit a Markdown trade ticket and stop. Execute only in the later confirmation turn with the same bound token id, condition id, side, amount/size, order type, price, slippage, Agent Wallet, and preview snapshot/token.
-8. After execution, call `byreal-cli polymarket order status --order-id <orderId> -o json` when an order id is returned, then read back portfolio, balance, or active orders when useful.
+2. Proxy wallet preflight. For buys, read `byreal-cli polymarket funding balance -o json` when balance is relevant. For sells, read `byreal-cli polymarket portfolio read -o json` and stop if requested size exceeds `sellable_size`.
+3. Create the ticket via the wrapper (runs preview/dry-run internally):
+   - Market: `byreal-pm order ticket --token-id <id> --condition-id <id> --side <buy|sell> --order-type market [--amount <usd> | --size <shares>] [--slippage-bps <n>]`
+   - Limit:  `byreal-pm order ticket --token-id <id> --condition-id <id> --side <buy|sell> --order-type limit --price <p> --size <n>`
 
-Trade ticket uses this skeleton. Keep it compact; show balance/account only when it changes the decision or blocks the order.
+   Returns `{ok, ticket_id, expires_at, preview, price_adjustment?}`. The `preview` block is the raw CLI snapshot — use its fields to render the trade ticket from the skeleton below.
+4. Before rendering, enforce manual trade limits when wallet/NAV data is available; if the requested notional exceeds the runtime cap, stop for explicit override. If `preview` shows insufficient liquidity, `fully_fills=false`, high price impact, stale data, or missing balance, surface the blocker instead of implying a clean fill.
+5. Render the trade ticket and stop. If `price_adjustment` is present, include a clear line such as `**Limit Price**: requested $0.155 -> actual $0.16`; the user's later "confirm" means consent to the actual executable price. Do not call `byreal-cli polymarket order place` directly.
+6. On user confirmation: `byreal-pm order exec --ticket <id>`. Returns `{ok, submitted, order_id, execute_result, post_state, post_state_error}` where `post_state` is the `order status` readback when an order id was returned. Report submitted evidence first; if `post_state_error` is present, say the order was submitted but the status readback failed.
+7. On wrapper error: `terminal:true` codes such as `PRICE_IDENTITY_MISSING` follow `Wrapper Terminal Reply` — send `assistant_message` verbatim, stop. `CLI_REJECTED` surfaces the CLI error in plain language and stops; do not retry with adjusted parameters (`Trading-Loop Discipline`). `TICKET_EXPIRED` / `TICKET_NOT_FOUND` re-create from step 3. `TICKET_KIND_MISMATCH` means another write is pending — resolve it first.
+
+Trade ticket uses this skeleton. Keep it compact; show balance/account only when it changes the decision or blocks the order. Do not use Markdown tables or emoji in trade tickets; every field is a separate `**Label**: value` line. Use `**Note**:` for blockers or caveats.
 
 ```text
 **<Order summary>** | **<Outcome label>** | **<Event or market title>**
@@ -199,8 +285,8 @@ Order summary labels: `**Buy $1**`, `**Sell 10 shares**`, `**Limit Buy $10**`, `
 **Position after sell**: 0 shares
 ```
 
-Show ticket lines only when the CLI returns enough data for them. Common mappings: `est_avg_price` or `avg_price` -> `Avg Price` / `Sell Price`; `estimated_shares` -> `You get`; `estimated_proceeds` -> `You receive`; `payout_if_win` -> win payout; `worst_price` or `signed_worst_price` -> `Worst Price`; `fully_fills` -> `Fill`; `slippage_bps` -> `Slippage`; `expires_at` -> quote expiry. If the CLI reports a partial fill, stale quote, high impact, or insufficient liquidity, show a blocker or warning and do not imply the full requested amount will execute. Include `Est. PnL` only when the CLI or current matched position read provides avg price/cost basis.
-For limits, make estimates conditional; limit buy price is the highest acceptable price, limit sell price is the lowest acceptable price.
+Show ticket lines only when the CLI returns enough data for them. Common mappings: `est_avg_price` or `avg_price` -> `Avg Price` / `Sell Price`; `estimated_shares` -> `You get`; `estimated_proceeds` -> `You receive`; `payout_if_win` -> win payout; `worst_price` or `signed_worst_price` -> `Worst Price`; `fill_policy` -> `Fill`; `slippage_bps` -> `Slippage`; `expires_at` -> quote expiry. If the CLI reports a partial fill, stale quote, high impact, or insufficient liquidity, show a blocker or warning and do not imply the full requested amount will execute. Include `Est. PnL` only when the CLI or current matched position read provides avg price/cost basis.
+For limits, make estimates conditional; limit buy price is the highest acceptable price, limit sell price is the lowest acceptable price. Do not render `fully_fills` as guaranteed execution for limit orders; use `**Fill**: may stay open until matched or canceled`.
 
 ```text
 **Limit Price**: $0.55
@@ -218,6 +304,12 @@ For limits, make estimates conditional; limit buy price is the highest acceptabl
 **Fill**: may stay open until matched or canceled
 ```
 
+If `price_adjustment` is present, replace the limit price line with the requested-to-actual form:
+
+```text
+**Limit Price**: requested $0.155 -> actual $0.16
+```
+
 Blocked orders use a short Markdown status instead of a trade ticket. Convert CLI errors into 1-2 user-facing lines.
 
 ```text
@@ -229,10 +321,11 @@ Cannot place this order yet
 
 ### Cancel Orders
 
-1. Preflight proxy, query active orders with relevant filters, and ask the user to choose if multiple orders match.
-2. Run `byreal-cli polymarket order cancel --dry-run -o json`, record exact matched order IDs/count/scope, emit a confirmation, and stop.
-3. On later confirmation, re-read active orders for the same scope. Execute only if IDs/count still match; otherwise show the new set and require fresh confirmation.
-4. After cancellation, re-read `byreal-cli polymarket order active -o json` or `byreal-cli polymarket order status --order-id <orderId> -o json`. Include order count/labels, scope, released funds/shares or remaining exposure, and truncated account when useful.
+1. Preflight proxy; read `byreal-cli polymarket order active -o json` with relevant filters; ask the user to choose if multiple orders match.
+2. Create cancel ticket: `byreal-pm cancel ticket [--order-id <id> ...] [--asset-id <id>] [--market <conditionId>] [--all]` (`--order-id` repeatable; any combination of scope filters). Returns `{ok, ticket_id, expires_at, preview}` where `preview` shows what would be canceled.
+3. Surface the confirmation message and stop. Do not call `byreal-cli polymarket order cancel` directly.
+4. On user confirmation: `byreal-pm cancel exec --ticket <id>`. Returns `{ok, submitted, canceled_order_ids, cancel_results, post_state, post_state_error}` where `post_state` is the fresh `order active` readback. Report submitted evidence first; if `post_state_error` is present, say the cancel requests were submitted but the active-order readback failed. If `post_state` still shows canceled orders due to indexer delay, report ambiguity (one re-read only; do not retry exec).
+5. Error handling: same as Buy Or Sell Outcome.
 
 ### Funding And Proxy Wallet
 
@@ -281,21 +374,23 @@ Proxy deploy readback message includes proxy/account status, truncated Agent Wal
 
 - Use narrow-screen stacked output: title, optional caveat, then up to 5 numbered items or a short ticket. Localize visible labels.
 - One Event, Market, option, position, or order per item. Put only the item title on the numbered line; put `Price:`, `Volume:`, `Liquidity:`, status, and position/order fields on separate indented lines. Exception: matchup availability and selected market option rows may use one compact `**Option** - $X` line as shown below.
-- Market-candidate items stay market-level only: title, `Ends`/`Status`, `Top option`, `Price`, `Volume`, `Liquidity`.
+- Use one numbered list per reply. Keep related markets, selected-market options, positions, and orders as separate reply types rather than mixing them in one message.
+- Market-candidate items stay market-level only: title, explicit `Status`, `Top option`, `Price`, `Volume`, `Liquidity`, and `Market date` only when the user asks for timing/deadline/settlement.
+- No-direct-market replies stay candidate-level only: exact-miss sentence, `Related markets`, related Event/Market titles, optional `Volume:` / `Status:`, then inspection prompt. Prices, options, YES/NO rows, separators, and nested lists belong to the later selected-market reply.
+- Read-only candidate replies end with the final prompt from their template. Use inspection wording such as `Tell me which one you want to inspect.` or `Reply with an option number to view details.`
 - Convert binary YES into a natural option such as `Mexico wins`. Show NO only when requested or selected by CLI.
-- Timing: selected/detail replies may use `Ends`, `Status`, or `Settlement` from CLI. Matchup availability omits timing/status lines unless the user asks. External schedule times require verification and `YYYY-MM-DD HH:mm UTC` plus explicit local timezone when shown.
-- Price language: current market price, not probability, odds estimate, favorite, market believes, or consensus. Explain `$1` payout only when asked.
+- External schedule times (when sourced beyond CLI) need verification and `YYYY-MM-DD HH:mm UTC` plus explicit local timezone when shown. `endDate` / `umaResolutionStatus` handling is in Role.
 - Keep raw IDs/JSON/internal policy out of normal replies; truncate useful wallet/order/address references.
 - Self-check before sending read-only replies: no tables, code fences, slash-compressed fields, pipe-compressed option/metric rows, decorative dividers, raw YES labels, nested candidate outcomes, unrequested NO, schedule inference, start/kickoff/today wording, favorite/probability wording, or trade/funding/proxy prompts unless asked. Preserve Markdown `**` markers from the selected template.
-- Matchup availability self-check: no opening found sentence, no timing/status line, no Volume/Liquidity, no inline `|`, and no trade/order prompt.
-- Selected market self-check: bold title line, compact `1. **Option** - $X` rows, separate `**Volume**:` and `**Liquidity**:` lines, neutral inspect prompt only.
+- Limit fill wording: buy limits may fill at the limit price or lower; sell limits at the limit price or higher. Not "below" or "above" the limit price.
+- No anticipation, encouragement, or speculative outcome language such as "settles tonight", "looking forward to it", "not your fault", or "you may be mistaken". Hypothetical payouts belong only inside trade-ticket `If <outcome>` lines with neutral phrasing.
 
 Event candidate shape:
 
 ```text
 Events
 
-1. **World Cup Group A Winner** | Ends: 2026-06-27
+1. **World Cup Group A Winner**
    Volume: $182K
    Status: active
 
@@ -311,15 +406,49 @@ Market candidate shape:
 ```text
 Markets
 
-1. **World Cup Group A Winner** | Ends: 2026-06-27
+1. **World Cup Group A Winner**
    Top option: **Mexico ($0.575)**
    Volume: $663K
 
-2. **World Cup Group A Second Place** | Ends: 2026-07-20
+2. **World Cup Group A Second Place**
    Top option: **South Korea ($0.315)**
    Volume: $66K
 
 Tell me which market you want to inspect.
+```
+
+No direct market shape — use exactly this shape. One language per reply (match the user's language). Related items show title and optional Volume only. Do not add `endDate`, match date, kickoff time, settlement window, or any timing line. Do not mix English labels with Chinese labels in the same reply.
+
+English:
+
+```text
+I don't see a direct **Mexico vs. South Africa** market.
+
+Related markets
+
+1. **Mexico vs. Korea Republic**
+   Volume: $231K
+
+2. **World Cup Group A Winner**
+   Volume: $969K
+
+Tell me which one you want to inspect.
+```
+
+Chinese:
+
+```text
+没有看到 **Mexico vs. South Africa** 的直接对决市场。
+
+相关市场
+
+1. **Mexico vs. Korea Republic**
+   Volume: $231K
+
+2. **World Cup Group A Winner**
+   Volume: $969K
+
+告诉我你想看哪个。
 ```
 
 Matchup availability shape:
@@ -337,7 +466,7 @@ Tell me which one you want to inspect.
 Selected market shape:
 
 ```text
-**World Cup Group A Winner** | Ends: 2026-06-27
+**World Cup Group A Winner**
 
 1. **Mexico** - **$0.575**
    Volume: $182K
