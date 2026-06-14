@@ -3,8 +3,9 @@ name: byreal-predict
 description: >-
   MUST read this skill before answering any message that mentions Polymarket, Byreal prediction markets, YES/NO markets, market odds/quotes/prices, event betting, Polymarket search, trading, funding, orders, positions, proxy wallet, or any follow-up inside an active Polymarket flow.
   Also read this skill before answering current or future sports schedule/status questions: kickoff times, scores, group standings, qualification state, live/ended status, tournament fixtures, or bracket state, even when the user says it is not a Polymarket trading request.
+  Reply in the user's language. Localize all prose and template labels to that language. Keep source names, market titles, IDs, prices, and official team names unchanged when no widely-used localized form exists.
   For Polymarket messages, refresh current state with byreal-cli polymarket before answering. Never answer Polymarket quotes, markets, balances, orders, funding, or readiness from prior chat context, web_search, web_fetch, or raw APIs.
-  For sports fact-only messages, verify with an official/current source before answering and use only this exact compact shape: **Match** newline Kickoff: YYYY-MM-DD HH:mm UTC newline Local time: YYYY-MM-DD HH:mm user timezone newline Competition newline Venue newline Source. Include no other timezones. Never output pipe characters `|`, Markdown tables, emoji, bullets, countdowns, today/tonight/tomorrow labels, or live/started/ended claims unless explicit live-status fields are returned.
+  For sports fact-only messages, verify with an official/current source before answering and use a compact localized shape: bold match title, then absolute UTC kickoff, the user's local time when their timezone is known, competition, venue, source — see `references/sports-timing.md` for the line-by-line shape and label-localization rule. Never output pipe characters `|`, Markdown tables, emoji, bullets, countdowns, today/tonight/tomorrow labels, or live/started/ended claims unless explicit live-status fields are returned.
   Use the output templates in this skill exactly, including Markdown bold markers where shown. Candidate and selected-market read-only replies end with detail/inspect wording, never buy/sell/trade/order wording.
 metadata:
   openclaw:
@@ -117,22 +118,14 @@ For every write (place, cancel, deploy, deposit, withdraw), the chat says "submi
 - Available markets under a topic/Event: use `Market candidate shape` exactly and stop. Include market-level fields only, plus one top option when returned. Do not add child option rows, matchup option summaries, or nested numbering under candidates.
 - Matchup availability: use `Matchup availability shape` exactly. Convert YES side to natural options such as `Mexico wins`; one compact `1. **Option** - $X` per row; end with an inspection prompt (never a trade/order prompt).
 - Selected Market: use `Selected market shape` exactly. One option per numbered item; the final prompt asks for a number to view details, not which option to trade.
-- Leader questions such as "who leads", "best quote/odds", or "most likely" use exactly this shape. Use the dollar price as the CLI returned it (`$X`). Localize only the label words; keep the dollar price unchanged. Do not convert `$0.625` to `约 62.5%`, `62.5% probability`, `1.6 赔率`, "favorite", "领跑者", or any judgment word. Do not add date, settlement, or status lines.
+- Leader questions such as "who leads", "best quote/odds", or "most likely" use exactly this shape. Use the dollar price as the CLI returned it (`$X`). Localize the label words to the user's language; keep the dollar price unchanged. Do not convert `$0.625` to `62.5%`, `62.5% probability`, `1.6 odds`, "favorite", "leader", or any judgment word in any language. Do not add date, settlement, or status lines.
 
-English:
+Canonical English shape (translate labels for non-English replies):
 
 ```text
 <Market title>
 Highest current price: <option> at $X.
 This is a market price, not a verified forecast.
-```
-
-Chinese:
-
-```text
-<Market title>
-当前最高价：<option> $X
-这是市场价，不是预测概率。
 ```
 
 - Live/status questions: answer with market availability or tradability only when the CLI provides that state. If asked whether a real-world match is live/started/ended and no explicit sports status is available, use this shape:
@@ -421,9 +414,9 @@ Markets
 Tell me which market you want to inspect.
 ```
 
-No direct market shape — use exactly this shape. One language per reply (match the user's language). Related items show title and optional Volume only. Do not add `endDate`, match date, kickoff time, settlement window, or any timing line. Do not mix English labels with Chinese labels in the same reply.
+No direct market shape — use this exact shape. One language per reply (match the user's reply language); translate the headline sentence and the `Related markets` heading. Related items show title and optional Volume only. Do not add `endDate`, match date, kickoff time, settlement window, or any timing line. Do not mix labels from two languages in the same reply.
 
-English:
+Canonical English shape (translate prose for non-English replies):
 
 ```text
 I don't see a direct **Mexico vs. South Africa** market.
@@ -437,22 +430,6 @@ Related markets
    Volume: $969K
 
 Tell me which one you want to inspect.
-```
-
-Chinese:
-
-```text
-没有看到 **Mexico vs. South Africa** 的直接对决市场。
-
-相关市场
-
-1. **Mexico vs. Korea Republic**
-   Volume: $231K
-
-2. **World Cup Group A Winner**
-   Volume: $969K
-
-告诉我你想看哪个。
 ```
 
 Matchup availability shape:
