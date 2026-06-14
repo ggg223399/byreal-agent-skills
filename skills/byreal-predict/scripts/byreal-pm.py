@@ -98,6 +98,34 @@ def emit_terminal(error: str, assistant_message: str, **debug_extra) -> None:
     emit(payload, exit_code=1)
 
 
+def safe_cli_message(payload: dict, fallback: str) -> str:
+    """Extract the safest user-facing message from a CLI error payload."""
+    if not isinstance(payload, dict):
+        return fallback
+    err = payload.get("error")
+    if isinstance(err, dict):
+        details = err.get("details")
+        if isinstance(details, dict) and details.get("safe_user_message"):
+            return str(details["safe_user_message"])
+        if err.get("message"):
+            return str(err["message"])
+        if err.get("code"):
+            return str(err["code"])
+    if isinstance(err, str) and err:
+        return err
+    if payload.get("detail"):
+        return str(payload["detail"])
+    return fallback
+
+
+def emit_cli_rejected_terminal(error: str, payload: dict, fallback: str) -> None:
+    message = (
+        "Cannot place this order yet\n\n"
+        f"{safe_cli_message(payload, fallback)}"
+    )
+    emit_terminal(error, message, cli_output=payload)
+
+
 def cli_error_payload(code: str, detail: str = "", **extra) -> dict:
     payload = {"success": False, "error": code, "detail": detail}
     payload.update(extra)
@@ -406,9 +434,10 @@ def cmd_order_ticket(args) -> None:
                 emit_error("MISSING_PARAM", "market sell requires --size")
         preview_payload = run_cli(_order_preview_cli(params))
         if cli_failed(preview_payload):
-            emit_error(
-                "CLI_REJECTED", "order preview failed",
-                cli_output=preview_payload,
+            emit_cli_rejected_terminal(
+                "ORDER_PREVIEW_REJECTED",
+                preview_payload,
+                "Order preview failed.",
             )
         preview_data = payload_data(preview_payload)
         preview_snapshot = preview_data.get("preview")
@@ -426,7 +455,11 @@ def cmd_order_ticket(args) -> None:
 
     dry_run_payload = run_cli(_order_place_cli(params, "--dry-run", preview_snapshot))
     if cli_failed(dry_run_payload):
-        emit_error("CLI_REJECTED", "order dry-run failed", cli_output=dry_run_payload)
+        emit_cli_rejected_terminal(
+            "ORDER_DRY_RUN_REJECTED",
+            dry_run_payload,
+            "Order dry-run failed.",
+        )
     price_adjustment = prepare_limit_price(params, dry_run_payload)
     dry_run_data = agent_order_preview(params, dry_run_payload)
 
