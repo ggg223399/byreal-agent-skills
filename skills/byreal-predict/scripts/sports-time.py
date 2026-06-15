@@ -172,12 +172,56 @@ def filter_payload(args):
                 }
             )
 
-    return {
+    payload = {
         **base,
         "matches": rows,
         "count": len(rows),
         "errors": errors,
     }
+    payload["assistant_message"] = render_filter_message(payload, args)
+    return payload
+
+
+def render_filter_message(payload: dict[str, Any], args) -> str:
+    lang = (args.language or "en").lower()
+    scope = args.scope or ("Schedule" if lang != "zh" else "\u8d5b\u7a0b")
+    source = args.source or "source"
+    if lang == "zh":
+        lines = [
+            f"**{scope}**",
+            f"\u7a97\u53e3: {payload['local_start']} \u81f3 {payload['local_end']}",
+            f"\u6bd4\u8d5b: {payload['count']}",
+            "",
+        ]
+        for idx, item in enumerate(payload["matches"], start=1):
+            lines.extend(
+                [
+                    f"{idx}. **{item['match']}**",
+                    f"\u5f00\u7403: {item['kickoff_utc']}",
+                    f"\u4f60\u7684\u65f6\u95f4: {item['your_time']}",
+                    "",
+                ]
+            )
+        lines.append(f"\u6765\u6e90: {source}")
+        return "\n".join(lines).rstrip()
+
+    lines = [
+        f"**{scope}**",
+        f"Window: {payload['local_start']} to {payload['local_end']}",
+        f"Matches: {payload['count']}",
+        "",
+    ]
+    for idx, item in enumerate(payload["matches"], start=1):
+        lines.extend(
+            [
+                f"{idx}. **{item['match']}**",
+                f"Kickoff: {item['kickoff_utc']}",
+                f"Your time: {item['your_time']}",
+                "",
+            ]
+        )
+    lines.append(f"Source: {source}")
+    return "\n".join(lines).rstrip()
 
 
 def main(argv=None) -> int:
@@ -200,6 +244,9 @@ def main(argv=None) -> int:
     filt.add_argument("--date", required=True)
     filt.add_argument("--kind", choices=["tonight", "today"], required=True)
     filt.add_argument("--fixtures-json")
+    filt.add_argument("--language", choices=["en", "zh"], default="en")
+    filt.add_argument("--source")
+    filt.add_argument("--scope")
     filt.set_defaults(func=filter_payload)
 
     args = parser.parse_args(argv)
