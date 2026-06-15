@@ -17,7 +17,9 @@ Use this reference for any sports timing/status question — kickoff time, score
 - Sports fact-only replies are compact text: no Markdown tables, pipe characters (`|`), emoji, bullets, decorative lines, countdowns, extra timezone tables, or `today` / `tonight` / `tomorrow` labels. Use absolute dates, UTC, and the user's local timezone when known.
 - Multi-match/count replies may use one numbered list. Keep one source line at the end unless items came from different sources.
 - Resolve user-relative windows before filtering. "Tonight" means the user's local evening/night window, defaulting to 18:00 through 06:00 the next local day when the user did not specify a different range. "Today" means the user's local calendar day. If the user's timezone is not known from runtime/session/prior message, ask the user for their timezone first and stop; do not filter, count, list, or answer from UTC as a fallback.
+- Relative-window filtering order is mandatory: define the user's local window, convert that window to UTC for source lookup, parse each candidate kickoff with its timezone, convert each kickoff back to the user's timezone, then filter/count/list by the converted local kickoff. Do not filter by the source's UTC calendar date before conversion.
 - Never label a UTC time as `Your time` unless the user's timezone is explicitly UTC+0. If the user's timezone is unknown, omit `Your time` instead of copying the UTC line.
+- `Kickoff` always means the absolute UTC kickoff in these shapes. The local conversion belongs only on `Your time`. If a source returns only local time, convert it to UTC before writing `Kickoff`; if the source timezone is ambiguous, use another source or say the time cannot be confirmed.
 - Do not infer live/started/ended state from kickoff time or the current clock. Say only the scheduled kickoff time unless an explicit sports status source returns `live`, `ended`, `period`, `elapsed`, or `score`.
 - For "is anything live now?" first check a source that can return live status across the relevant competition/day. Do not answer "no live matches" after only checking future scheduled fixtures or the next kickoff time. Include any explicitly live match returned by the source even when its kickoff falls outside a prior "tonight" fixture window.
 - If no explicit sports live-status fields are available, say the current available data cannot confirm the real-world match status.
@@ -71,6 +73,10 @@ Source: <source name>
 ```
 
 If the timezone is unknown, ask for the user's timezone and stop before using "tonight" or any other user-relative window. If the user asked for a UTC day/window, replace `Window` with that UTC window and omit `Your time`.
+
+Reply with the shape only. Do not append outside-window fixtures, "other matches", commentary, or relative labels after the source line.
+
+Worked conversion example: for a UTC+8 user asking on 2026-06-15, "tonight" is 2026-06-15 18:00 to 2026-06-16 06:00 UTC+8, which is 2026-06-15 10:00 to 2026-06-15 22:00 UTC. A fixture at 2026-06-15 17:00 UTC converts to 2026-06-16 01:00 UTC+8 and is inside the user's tonight window.
 
 ## Live status shape
 
