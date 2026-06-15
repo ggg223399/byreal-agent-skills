@@ -13,9 +13,14 @@ Use this reference for any sports timing/status question — kickoff time, score
 
 - Price and market-availability replies do not include match timing unless the user asks for timing.
 - For sports fact-only schedule/status questions, actively use an allowed current source when available. Allowed sources include official organizer pages, official match centres, official fixture/preview pages, and dedicated sports/live-score tools exposed in the session. For FIFA World Cup questions, prefer FIFA official sources.
+- Fixture lists and live-status questions are different reads. Use official fixture/match-centre sources for schedules; use an official match centre or a dedicated live-score source that returns explicit status fields for "live", "in progress", "current score", or "minute" questions. A preview article or fixture list without status fields is not enough to say no match is live.
 - Sports fact-only replies are compact text: no Markdown tables, pipe characters (`|`), emoji, bullets, decorative lines, countdowns, extra timezone tables, or `today` / `tonight` / `tomorrow` labels. Use absolute dates, UTC, and the user's local timezone when known.
+- Multi-match/count replies may use one numbered list. Keep one source line at the end unless items came from different sources.
+- Resolve user-relative windows before filtering. "Tonight" means the user's local evening/night window, defaulting to 18:00 through 06:00 the next local day when the user did not specify a different range. "Today" means the user's local calendar day. If the user's timezone is not known from runtime/session/prior message, ask the user for their timezone first and stop; do not filter, count, list, or answer from UTC as a fallback.
+- Never label a UTC time as `Your time` unless the user's timezone is explicitly UTC+0. If the user's timezone is unknown, omit `Your time` instead of copying the UTC line.
 - Do not infer live/started/ended state from kickoff time or the current clock. Say only the scheduled kickoff time unless an explicit sports status source returns `live`, `ended`, `period`, `elapsed`, or `score`.
-- If no explicit sports live-status fields are available, say the Polymarket data cannot confirm the real-world match status.
+- For "is anything live now?" first check a source that can return live status across the relevant competition/day. Do not answer "no live matches" after only checking future scheduled fixtures or the next kickoff time. Include any explicitly live match returned by the source even when its kickoff falls outside a prior "tonight" fixture window.
+- If no explicit sports live-status fields are available, say the current available data cannot confirm the real-world match status.
 - If the user asks whether a market can be traded, answer from tradability fields, readiness, preview, dry-run, or order-book signals, not from match timing.
 - If the user asks when a market ends or settles and the only available field is `endDate` / `end_date`, label it `Market date`, not kickoff, end time, settlement time, today, tonight, tomorrow, pre-match, or in-play.
 
@@ -45,6 +50,56 @@ Source: <source name>
 
 Do not add other timezone conversions, relative labels, emoji, tables, bullets, countdowns, or live/started/ended claims unless the source explicitly returned live status.
 
+## Aggregate schedule shape
+
+Use this for "how many games tonight/today", fixture lists, or multi-match schedule questions after source verification.
+
+```text
+**<Competition or scope>**
+Window: <YYYY-MM-DD HH:mm> to <YYYY-MM-DD HH:mm UTC+offset>
+Matches: <count>
+
+1. **<Team A> vs <Team B>**
+Kickoff: <YYYY-MM-DD HH:mm UTC>
+Your time: <YYYY-MM-DD HH:mm UTC+offset>
+
+2. **<Team C> vs <Team D>**
+Kickoff: <YYYY-MM-DD HH:mm UTC>
+Your time: <YYYY-MM-DD HH:mm UTC+offset>
+
+Source: <source name>
+```
+
+If the timezone is unknown, ask for the user's timezone and stop before using "tonight" or any other user-relative window. If the user asked for a UTC day/window, replace `Window` with that UTC window and omit `Your time`.
+
+## Live status shape
+
+Use this for "is anything live now", score, minute, started, or ended questions.
+
+When explicit live fields exist:
+
+```text
+**Matches in progress**
+Checked: <YYYY-MM-DD HH:mm UTC>
+
+1. **<Team A> vs <Team B>**
+Status: <live/halftime/ended/etc. from source>
+Score: <score when returned>
+Minute: <minute/period when returned>
+
+Source: <source name>
+```
+
+When no explicit live fields are available:
+
+```text
+I cannot confirm live matches from the current data.
+
+The source returned fixtures only, not live status, score, or minute fields.
+```
+
+Do not use kickoff time plus wall-clock time to fill `Status`, `Score`, or `Minute`.
+
 ## Generated Schedule References
 
 Static schedule data becomes stale quickly. Use a generated schedule reference only when it includes:
@@ -69,3 +124,21 @@ Correct flow:
 4. If no source is available in this session: reply that the kickoff time cannot be confirmed from current data. Do not guess.
 
 Common failure mode to avoid: answering "World Cup Group C, June 25, time TBD" from training memory. Training memory is not a current source for schedules — groups, dates, and times shift, and getting them wrong here is harder to catch than getting a price wrong. Even when the question feels purely factual, the source step is still required.
+
+## Worked Example 2: live minute / score
+
+User: How many minutes into the match are we? / What's the current score?
+
+Correct flow:
+
+1. Check whether an allowed source has returned explicit live-status fields (`live`, `ended`, `period`, `elapsed`, `score`). The default Polymarket CLI does not return these.
+2. If a source has live fields: reply with what those fields say, in a compact label-value structure consistent with the Sports fact-only shape.
+3. If no live source is available in this session: reply that the current Polymarket data cannot confirm the live minute or score. Do not estimate from kickoff time minus the current wall clock. Do not invent a score.
+
+Common failure modes to avoid:
+
+- Answering "30th minute, 0-0" by subtracting kickoff time from the current clock. Matches get delayed, suspended, paused, or rescheduled; elapsed wall-clock time is not the same as match minute.
+- Saying "the match should be live now" or "should be in the second half" — those are inferences from the schedule plus current time, not facts from a live source.
+- Inventing a 0-0 default when no score field exists. No data is not the same as 0-0.
+- Saying "the next fixture starts at 17:00 UTC, so nothing is live now" after checking only future fixtures. That misses matches already in progress and is still schedule inference.
+- Writing `Your time: 2026-06-15 17:00 UTC` when the kickoff line is also `2026-06-15 17:00 UTC`. That is UTC repeated, not a user-local conversion, unless the user is explicitly in UTC+0.
