@@ -30,6 +30,7 @@ metadata:
 - `scripts/byreal-pm.py` - ticket-enforced wrapper for order/cancel writes. The skill calls this wrapper (not `byreal-cli polymarket order place` / `... order cancel`) for any order/cancel write; reads still go directly to `byreal-cli`. **Always invoke as `python3 skills/byreal-predict/scripts/byreal-pm.py ...`** — do not try the bare `byreal-pm` name first; it is not on PATH by default and the failed call wastes a turn. (Deployers who want the shorthand can `ln -s` the script into `/usr/local/bin/byreal-pm`.) Use `--help` per subcommand for arg lists. See `Buy Or Sell Outcome` and `Cancel Orders` workflows.
 - `scripts/market-resolve.py` - current CLI-backed read-only helper for exact sports market-type requests (spread, handicap, over/under, total, prop). Use it before manually rendering these requests so no-match replies cannot drift into unrelated moneyline summaries.
 - `scripts/account-read.py` - current CLI-backed read-only helper for account-level values that are easy to miscompute, especially floating PnL. Use it for PnL/profit questions before manually reading portfolio data.
+- `scripts/sports-time.py` - deterministic timezone/window helper for sports schedule replies. Use it for user-relative windows such as tonight/today before counting or listing fixtures; do not do timezone arithmetic manually.
 
 ## Script Terminal Reply (worked example)
 
