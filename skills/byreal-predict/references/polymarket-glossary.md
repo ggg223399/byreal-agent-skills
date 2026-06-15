@@ -23,6 +23,8 @@ Use this reference when translating user wording into Byreal Polymarket CLI para
 | 3-way market | Sports moneyline-style outcome set: Team A / Draw / Team B. | Do not collapse this into Yes/No. |
 | Moneyline | A sports winner market. | Often dominates sports volume; may be 2-way or 3-way depending on sport/rules. |
 | Negative risk (`negRisk`) | Related markets that can be combined for risk reduction or arbitrage-like settlement mechanics. | Do not explain or trade related markets unless the user asks or the CLI returns them for the chosen Market. |
+| Direct NO token | The CLI-returned NO outcome for one binary proposition, often exposed as `no_token_id` or an outcome label `No`. | A buy-NO request must use this token with side `buy`. Do not approximate it with other YES outcomes or by selling YES. |
+| Composite negation | A phrase such as "Team A does not win" when the current tradable set has Team A / Draw / Team B but no single NO token for Team A. | Not a single order. Stop instead of constructing multiple orders. |
 
 ## Trading Terms
 
@@ -37,6 +39,7 @@ Use this reference when translating user wording into Byreal Polymarket CLI para
 | Shares | Number of outcome tokens. | SELL market orders use `--size`; limit orders use `--size` for both sides. |
 | Amount | USD/USDC budget for a BUY market order. | BUY market preview/place use `--amount`. |
 | Selling an existing position | Selling owned outcome tokens for USDC and reducing exposure. | Use `--size`. Do not describe it as opening a short unless the CLI explicitly supports shorting; selling held YES shares gives up upside if YES wins. |
+| Buying NO | Buying the direct NO token for the same proposition. | This is a `buy` side order on the NO token, not a sell of the YES token. |
 | Market order | Immediate order that takes available liquidity. | CLI uses FOK behavior for market orders. |
 | Limit order | Resting order at a user price. | CLI uses GTC behavior; requires `--price` and `--size`. |
 | FOK | Fill-or-kill: execute immediately or not at all. | Used for market orders. |

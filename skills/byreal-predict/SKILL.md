@@ -2,9 +2,11 @@
 name: byreal-predict
 description: >-
   MUST read this skill before answering any message that mentions Polymarket, Byreal prediction markets, YES/NO markets, market odds/quotes/prices, event betting, Polymarket search, trading, funding, orders, positions, proxy wallet, or any follow-up inside an active Polymarket flow.
+  Also read this skill before sports match outcome trade requests or specific team outcome requests, such as buying/selling Belgium, Belgium wins, Draw, Belgium not-win, Belgium not-lose, Belgium loses, or Belgium NO, even when the user does not explicitly say Polymarket.
   Also read this skill before answering current or future sports schedule/status questions: kickoff times, scores, group standings, qualification state, live/ended status, tournament fixtures, or bracket state, even when the user says it is not a Polymarket trading request.
   Reply in the user's language. Localize all prose and template labels to that language. Keep source names, market titles, IDs, prices, and official team names unchanged when no widely-used localized form exists.
   For Polymarket messages, refresh current state with byreal-cli polymarket before answering. Never answer Polymarket quotes, markets, balances, orders, funding, or readiness from prior chat context, web_search, web_fetch, or raw APIs.
+  Buy-NO / negative-outcome requests such as "buy No", "not win", "won't win", "against Belgium", or "Belgium does not win" must use a direct CLI-returned NO outcome token for the same proposition. Never satisfy them by buying Draw plus the opponent, selling the YES side, creating multiple orders, or using negRisk/complement reasoning. If no direct NO token exists, stop with the composite-negative blocker shape.
   Polymarket order support is limited to market (FOK) and limit (GTC). Stop-loss, stop loss, stoploss, stop-limit, take-profit, trailing-stop, OCO, bracket, conditional, localized equivalents of those order types, and any other order type are unsupported. This gate runs before account checks, position checks, event search, portfolio reads, proxy preflight, or any other CLI/tool call. Reply in the user's language using the unsupported-order shape; do not mention positions, balances, alternatives, or next-step prompts.
   Sports market requests such as spread, handicap, over/under, total, or props must be resolved with `python3 skills/byreal-predict/scripts/market-resolve.py ...`, which reads current byreal-cli event search/detail output. If that helper returns `terminal:true`, send its `assistant_message` verbatim. Listing available winner/draw/moneyline markets, saying "only N markets", or suggesting alternatives is invalid.
   For sports fact-only messages, verify with an official/current source before answering. Use `Sports fact-only shape` for one match, `Aggregate schedule shape` for multi-match/count fixtures, and `Live status shape` for live/in-progress questions. For user-relative windows such as tonight/today, ask for the user's timezone first when it is not known. Translate labels to the user's language. Never output pipe characters `|`, Markdown tables, emoji/icons, countdowns, today/tonight/tomorrow labels, rankings, history, analysis, or live/started/ended claims unless explicit live-status fields are returned.
@@ -78,6 +80,7 @@ You are a CLI operator for Byreal Polymarket capabilities in `byreal-cli`. Trans
 - For read-only candidate replies, compose one response block from one template. Use one numbered list at most. The final line is an inspection prompt.
 - For `Team A vs Team B` matchup requests, a direct match requires one returned Event/Market title or question to name both teams as opposing sides. Group winner, tournament winner, qualification, advance, or continent markets are related candidates, not the requested matchup.
 - Resolve trade intent as Event -> Market -> option/outcome token. URLs, slugs, titles, descriptions, and outcome labels are clues, not tradable objects.
+- Resolve negative outcome intent as Event -> Market/proposition -> direct NO outcome token. "Buy No", "not win", "won't win", "against <outcome>", and "<outcome> does not happen" are buy intents for the NO token of the same proposition when the CLI returns one, such as `no_token_id` or an outcome exactly named `No`. They are not sell intents, and they are not permission to construct a bundle from other outcomes.
 - Respect exact user parameters and bind market, option, side, amount/size, order type, limit price, destination, and funding direction. If the wrapper returns a CLI-normalized `price_adjustment`, the user can consent to the actual executable limit price in the confirmation ticket.
 - Treat `endDate` as low-priority market metadata. Do not infer real-world start/live/ended status, pre-match/in-play status, or tradability from `endDate` or event descriptions. Omit it by default; when the user explicitly asks timing/deadline/settlement and the CLI returns no better label, show it as `Market date`.
 - For real-world match status, use only explicit sports status fields from an allowed source. If the CLI/allowed source does not return live/ended/period/score status, say the data cannot confirm the real-world match status.
@@ -202,6 +205,7 @@ For order and cancel writes, the wrapper script (`scripts/byreal-pm.py`) manages
 - No result means no matching visible/whitelisted Event for that scope, not that the real-world topic does not exist.
 - If several Events, Markets, outcomes, positions, or orders match, show up to 5 narrow-screen friendly candidates and ask the user to choose.
 - Multi-outcome and 3-way markets must come from CLI-returned outcomes; do not force sports markets into binary Yes/No.
+- A negative phrase over a multi-outcome set is composite unless there is a direct NO token for that exact proposition. In a soccer moneyline-style set, "Belgium does not win" must not become "buy Draw and Egypt" or "sell Belgium wins". If the Belgium proposition has a direct NO token, buy that token; otherwise use the composite-negative blocker shape and stop.
 - For spread, handicap, over/under, total, or prop requests, call `scripts/market-resolve.py` instead of manually summarizing `event detail`. Pass a concise English `--event-query`, a concise English `--market-query`, the user's requested market wording as `--display-market`, and the user's language as `--language`. If no matching Market is returned, the helper emits a terminal one-sentence reply; send it verbatim. Do not list, count, summarize, or price moneyline/winner/draw Markets, related markets, or substitute options in that reply.
 - Before trading, confirm Event, Market, outcome, tradability, price, outcome token id, and condition id from CLI output.
 - Carry returned `condition_id` through preview, dry-run, execute, readiness, active-order filters, and cancel filters.
@@ -254,16 +258,17 @@ For empty sections, use direct status lines such as `No active orders.` or `No p
 
 1. Resolve Event -> Market -> outcome.
 2. Before any CLI/tool call, proxy preflight, market read, portfolio read, preview, or ticket: check for unsupported order types. If the user requested stop-loss, stop loss, stoploss, stop-limit, take-profit, trailing-stop, OCO, bracket, conditional, localized equivalents of those order types, or anything other than market/limit, reply with `Unsupported order type shape` and stop. Never inspect whether the user owns the outcome before rejecting an unsupported order type.
-3. Proxy wallet preflight. For buys, read `byreal-cli polymarket funding balance -o json` when balance is relevant. For sells, read `byreal-cli polymarket portfolio read -o json` and stop if requested size exceeds `sellable_size`.
-4. Create the ticket via the wrapper (runs preview/dry-run internally):
+3. For buy-NO / negative-outcome wording, after resolving the current Event/Market, bind only a direct CLI-returned NO token for the same proposition. Use `--side buy` with that NO token. Do not use a YES token with `--side sell`; selling is only for explicit sell/close/reduce requests against an owned position. Do not create multiple tickets to approximate the negation with other YES outcomes. If there is no direct NO token, use `Composite negative blocker shape` and stop.
+4. Proxy wallet preflight. For buys, read `byreal-cli polymarket funding balance -o json` when balance is relevant. For sells, read `byreal-cli polymarket portfolio read -o json` and stop if requested size exceeds `sellable_size`.
+5. Create the ticket via the wrapper (runs preview/dry-run internally):
    - Market: `byreal-pm order ticket --token-id <id> --condition-id <id> --side <buy|sell> --order-type market [--amount <usd> | --size <shares>] [--slippage-bps <n>]`
    - Limit:  `byreal-pm order ticket --token-id <id> --condition-id <id> --side <buy|sell> --order-type limit --price <p> --size <n>`
 
    Returns `{ok, ticket_id, expires_at, preview, price_adjustment?}`. The `preview` block is the raw CLI snapshot — use its fields to render the trade ticket from the skeleton below.
-5. Before rendering, enforce manual trade limits when wallet/NAV data is available; if the requested notional exceeds the runtime cap, stop for explicit override. If `preview` shows insufficient liquidity, `fully_fills=false`, high price impact, stale data, or missing balance, surface the blocker instead of implying a clean fill.
-6. Render the trade ticket and stop. If `price_adjustment` is present, include a clear line such as `**Limit Price**: requested $0.155 -> actual $0.16`; the user's later "confirm" means consent to the actual executable price. Do not call `byreal-cli polymarket order place` directly.
-7. On user confirmation: `byreal-pm order exec --ticket <id>`. Returns `{ok, submitted, order_id, execute_result, post_state, post_state_error}` where `post_state` is the `order status` readback when an order id was returned. Report submitted evidence first; if `post_state_error` is present, say the order was submitted but the status readback failed.
-8. On wrapper error: `terminal:true` codes such as `PRICE_IDENTITY_MISSING` follow `Script Terminal Reply` — send `assistant_message` verbatim, stop. `CLI_REJECTED` surfaces the CLI error in plain language and stops; do not retry with adjusted parameters (`Trading-Loop Discipline`). `TICKET_EXPIRED` / `TICKET_NOT_FOUND` re-create from step 4. `TICKET_KIND_MISMATCH` means another write is pending — resolve it first.
+6. Before rendering, enforce manual trade limits when wallet/NAV data is available; if the requested notional exceeds the runtime cap, stop for explicit override. If `preview` shows insufficient liquidity, `fully_fills=false`, high price impact, stale data, or missing balance, surface the blocker instead of implying a clean fill.
+7. Render the trade ticket and stop. If `price_adjustment` is present, include a clear line such as `**Limit Price**: requested $0.155 -> actual $0.16`; the user's later "confirm" means consent to the actual executable price. Do not call `byreal-cli polymarket order place` directly.
+8. On user confirmation: `byreal-pm order exec --ticket <id>`. Returns `{ok, submitted, order_id, execute_result, post_state, post_state_error}` where `post_state` is the `order status` readback when an order id was returned. Report submitted evidence first; if `post_state_error` is present, say the order was submitted but the status readback failed.
+9. On wrapper error: `terminal:true` codes such as `PRICE_IDENTITY_MISSING` follow `Script Terminal Reply` — send `assistant_message` verbatim, stop. `CLI_REJECTED` surfaces the CLI error in plain language and stops; do not retry with adjusted parameters (`Trading-Loop Discipline`). `TICKET_EXPIRED` / `TICKET_NOT_FOUND` re-create from step 5. `TICKET_KIND_MISMATCH` means another write is pending — resolve it first.
 
 Trade ticket uses this skeleton. Keep it compact; show balance/account only when it changes the decision or blocks the order. Do not use Markdown tables or emoji in trade tickets; every field is a separate `**Label**: value` line. Use `**Note**:` for blockers or caveats.
 
@@ -348,6 +353,16 @@ You do not have a Japan position, so I cannot place a stop-loss. Buy Japan first
 
 Correct behavior: reply only that the requested order type is unsupported.
 
+Composite negative blocker shape:
+
+```text
+Cannot place this as one order yet
+
+The current market data does not return a single **<requested negative outcome>** token. A negated outcome across multiple possibilities would be a composite trade, so I will not approximate it by buying other outcomes or selling the positive side.
+```
+
+Localize the prose and the requested outcome. Use this shape only when a buy-NO / negative-outcome request has no direct CLI-returned NO token for the same proposition.
+
 ### Cancel Orders
 
 1. Preflight proxy; read `byreal-cli polymarket order active -o json` with relevant filters; ask the user to choose if multiple orders match.
@@ -421,6 +436,7 @@ Common failure mode to avoid: calling `funding deposit --amount 10 --execute -o 
 - No-direct-market replies stay candidate-level only: exact-miss sentence, `Related markets`, related Event/Market titles, optional `Volume:` / `Status:`, then inspection prompt. Prices, options, YES/NO rows, separators, and nested lists belong to the later selected-market reply. If the exact Event was found but its full detail lacks the requested market type, use only `No matching market in event shape`; no related markets or fallback winner rows.
 - Read-only candidate replies end with the final prompt from their template. Use inspection wording such as `Tell me which one you want to inspect.` or `Reply with an option number to view details.`
 - Convert binary YES into a natural option such as `Mexico wins`. Show NO only when requested or selected by CLI.
+- For requested NO, show it as the negated natural proposition, such as `Belgium does not win`, when the CLI returned the direct NO token. Do not display or trade unrelated outcomes as the user's NO.
 - External schedule times (when sourced beyond CLI) need verification and `YYYY-MM-DD HH:mm UTC` plus explicit local timezone when shown. `endDate` / `umaResolutionStatus` handling is in Role.
 - Keep raw IDs/JSON/internal policy out of normal replies; truncate useful wallet/order/address references.
 - Self-check before sending read-only replies: no tables, code fences, slash-compressed fields, pipe-compressed option/metric rows, decorative dividers, raw YES labels, nested candidate outcomes, unrequested NO, schedule inference, start/kickoff/today wording, favorite/probability wording, or trade/funding/proxy prompts unless asked. Preserve Markdown `**` markers from the selected template.
