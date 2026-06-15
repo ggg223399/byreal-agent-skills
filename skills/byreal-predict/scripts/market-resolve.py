@@ -86,25 +86,135 @@ def norm(text: str) -> str:
     return re.sub(r"[^a-z0-9.+-]+", " ", text.lower()).strip()
 
 
+def tokens(text: str) -> list[str]:
+    return norm(text).split()
+
+
+def has_phrase(haystack_tokens: list[str], phrase: str) -> bool:
+    phrase_tokens = tokens(phrase)
+    if not phrase_tokens:
+        return False
+    width = len(phrase_tokens)
+    return any(
+        haystack_tokens[idx : idx + width] == phrase_tokens
+        for idx in range(0, len(haystack_tokens) - width + 1)
+    )
+
+
 def numbers(text: str) -> set[str]:
     return set(re.findall(r"\d+(?:\.\d+)?", text))
 
 
-def market_terms(query: str) -> list[str]:
-    q = norm(query)
-    term_groups = [
-        ("total", "totals", "over", "under", "goal", "goals", "point", "points", "score", "o/u"),
-        ("spread", "handicap", "line"),
-        ("prop", "player", "scorer", "assist", "card", "corner"),
-        ("parlay", "same game parlay", "sgp"),
-    ]
-    selected = []
-    for group in term_groups:
-        if any(term in q for term in group):
-            selected.extend(group)
-    if selected:
-        return selected
-    return [tok for tok in q.split() if len(tok) > 2]
+MARKET_CATEGORIES = {
+    "total": {
+        "query_aliases": (
+            "total",
+            "totals",
+            "over",
+            "under",
+            "over under",
+            "o/u",
+            "total goals",
+            "total points",
+            "goal total",
+            "points total",
+            "\u603b\u5206",
+            "\u603b\u8fdb\u7403",
+            "\u5927\u5c0f",
+            "\u5927\u7403",
+            "\u5c0f\u7403",
+        ),
+        "market_aliases": (
+            "total",
+            "totals",
+            "over",
+            "under",
+            "over under",
+            "o/u",
+            "total goals",
+            "total points",
+            "goal total",
+            "points total",
+        ),
+        "types": ("total", "totals", "over_under", "over under"),
+    },
+    "spread": {
+        "query_aliases": (
+            "spread",
+            "handicap",
+            "point spread",
+            "asian handicap",
+            "run line",
+            "puck line",
+            "goal line",
+            "line",
+            "\u8ba9\u5206",
+            "\u8ba9\u7403",
+            "\u76d8\u53e3",
+        ),
+        "market_aliases": (
+            "spread",
+            "handicap",
+            "point spread",
+            "asian handicap",
+            "run line",
+            "puck line",
+            "goal line",
+        ),
+        "types": ("spread", "handicap", "point_spread", "point spread"),
+    },
+    "prop": {
+        "query_aliases": (
+            "prop",
+            "player",
+            "scorer",
+            "assist",
+            "card",
+            "corner",
+            "correct score",
+            "same game parlay",
+            "sgp",
+            "\u7403\u5458",
+            "\u5c04\u624b",
+            "\u52a9\u653b",
+            "\u89d2\u7403",
+            "\u724c",
+            "\u6bd4\u5206",
+        ),
+        "market_aliases": (
+            "prop",
+            "player",
+            "scorer",
+            "assist",
+            "card",
+            "corner",
+            "correct score",
+            "same game parlay",
+            "sgp",
+        ),
+        "types": ("prop", "player_prop", "player prop", "parlay"),
+    },
+}
+
+
+def aliases_match(text: str, alias_key: str) -> list[str]:
+    raw = text.lower()
+    normalized_tokens = tokens(text)
+    matches = []
+    for category, config in MARKET_CATEGORIES.items():
+        for alias in config[alias_key]:
+            if any(ord(ch) > 127 for ch in alias):
+                if alias in raw:
+                    matches.append(category)
+                    break
+            elif has_phrase(normalized_tokens, alias):
+                matches.append(category)
+                break
+    return matches
+
+
+def requested_categories(query: str) -> list[str]:
+    return aliases_match(query, "query_aliases")
 
 
 def market_text(market: dict) -> str:
@@ -117,12 +227,29 @@ def market_text(market: dict) -> str:
     return norm(" ".join(str(v) for v in fields if v))
 
 
+def market_matches_category(market: dict, category: str) -> bool:
+    market_type = norm(str(market.get("market_type") or ""))
+    if market_type == "moneyline":
+        return False
+    config = MARKET_CATEGORIES[category]
+    if any(has_phrase(tokens(market_type), market_type_alias) for market_type_alias in config["types"]):
+        return True
+    return category in aliases_match(market_text(market), "market_aliases")
+
+
 def matches_market(market: dict, query: str) -> bool:
     text = market_text(market)
-    terms = market_terms(query)
-    if not terms:
-        return False
-    if not any(norm(term) in text for term in terms):
+    categories = requested_categories(query)
+    if categories:
+        if not any(market_matches_category(market, category) for category in categories):
+            return False
+    else:
+        query_tokens = [tok for tok in tokens(query) if len(tok) > 2]
+        text_tokens = set(tokens(text))
+        if not query_tokens or not any(tok in text_tokens for tok in query_tokens):
+            return False
+
+    if not text:
         return False
 
     wanted_numbers = numbers(query)

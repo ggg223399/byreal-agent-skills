@@ -41,7 +41,7 @@ Use this reference when translating user wording into Byreal Polymarket CLI para
 | Selling an existing position | Selling owned outcome tokens for USDC and reducing exposure. | Use `--size`. Do not describe it as opening a short unless the CLI explicitly supports shorting; selling held YES shares gives up upside if YES wins. |
 | Buying NO | Buying the direct NO token for the same proposition. | This is a `buy` side order on the NO token, not a sell of the YES token. |
 | Market order | Immediate order that takes available liquidity. | CLI uses FOK behavior for market orders. |
-| Limit order | Resting order at a user price. | CLI uses GTC behavior; requires `--price` and `--size`. |
+| Limit order | A price-boundary order. **BUY limit = user's maximum acceptable cost**: fills when the market price is at or below the limit. A BUY limit above the current ask fills immediately at available liquidity (the user is willing to pay up to that limit but pays less if liquidity is cheaper); a BUY limit below the current ask rests until the market drops to the limit or lower. **SELL limit = user's minimum acceptable proceeds**: fills when the market price is at or above the limit. Mirror logic for sells. | CLI uses GTC behavior; requires `--price` and `--size`. A reply that says a BUY limit "needs the price to rise to fill" has the direction reversed. |
 | FOK | Fill-or-kill: execute immediately or not at all. | Used for market orders. |
 | GTC | Good-til-cancelled: rests until filled or cancelled. | Used for limit orders. |
 | Slippage bps | Absolute price tolerance for market order execution. Default 100 means 0.01 price units. | CLI flag: `--slippage-bps`. |
@@ -76,3 +76,30 @@ Binary YES/NO prices settle as complementary outcomes, but displayed quotes do n
 | Liquidity | Available trading depth. | Use in user summaries and caution on thin markets. |
 | Volume | Historical traded amount. | Useful for candidate ranking, not a guarantee of current liquidity. |
 | Active order filters | Filters for listing or scoped cancellation of active orders. | `order active` can filter by `--market <conditionId>` and `--asset-id <tokenId>`. `order_id` is for status or exact cancellation, not for listing active orders. |
+
+## Price Math
+
+Polymarket prices are 0-1 implied probabilities; payout per share is $1 on the correct outcome, $0 on the other.
+
+| Quantity | Formula | Example (`price` = $0.62) |
+| --- | --- | --- |
+| Implied probability | `price` | 62% |
+| Decimal odds | `1 / price` | 1.61x |
+| American odds (favorite, price > 0.5) | `-100 × price / (1 - price)` | -163 |
+| American odds (underdog, price ≤ 0.5) | `+100 × (1 - price) / price` | n/a here |
+| Fractional odds | `(1 - price) : price` | ≈ 38 : 62 (≈ 3 : 5) |
+
+For a BUY at `price` with `shares` shares:
+
+- Cost: `price × shares`
+- Max payout (if wins): `$1 × shares`
+- Profit if wins: `(1 - price) × shares`
+- Max loss (if loses): `price × shares`
+- ROI if wins: `(1 - price) / price` (e.g. buying at $0.62 yields ~61% return)
+
+For closing a position (selling held shares):
+
+- Proceeds: `sell_price × shares`
+- PnL: `(sell_price - avg_price) × shares`
+
+Default rendering keeps the dollar price `$X`. Add "(N% implied probability)" when explaining what a price means; switch to decimal / American / fractional only when the user asks for that format.
