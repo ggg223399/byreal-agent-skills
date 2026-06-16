@@ -7,13 +7,14 @@ Use this reference for any sports timing/status question — kickoff time, score
 - `endDate` / `end_date`: Polymarket/Gamma market metadata. It is not proof of kickoff, final whistle, live state, market close, or settlement completion.
 - `umaResolutionStatus`: UMA settlement workflow only. `proposed` means a resolution proposal is pending; `resolved` means the market resolved. It is not a live-score or match-status field.
 - `closed`, `active`, `acceptingOrders`, `enableOrderBook`: market tradability fields. They say whether the market can be traded, not whether the real-world match is live or ended.
-- `live`, `ended`, `period`, `elapsed`, `score`: sports live-status fields. Use these only when explicitly returned by an allowed source.
+- `live`, `ended`, `period`, `elapsed`, `score`: sports live-status fields. Use these only when explicitly returned by an allowed source such as `scripts/polymarket-sports.py`; do not confuse them with Gamma market metadata.
 
 ## Reply Rules
 
 - Match timing in price/market-availability replies appears only when the user asks for it.
-- For sports fact-only schedule/status questions, use an allowed current source: official organizer pages, official match centres, official fixture/preview pages, and dedicated sports/live-score tools exposed in the session. For FIFA World Cup questions, prefer FIFA official sources.
+- For sports fact-only schedule/status questions, use an allowed current source: `scripts/polymarket-sports.py`, official organizer pages, official match centres, official fixture/preview pages, and dedicated sports/live-score tools exposed in the session. For Polymarket Sports-covered leagues such as World Cup (`fwc`) and MLB (`mlb`), use `scripts/polymarket-sports.py` first for live/status/score/minute.
 - Fixture lists and live-status questions are different reads. Use official fixture/match-centre sources for schedules; use a source that returns explicit status fields (`live`, `ended`, `period`, `elapsed`, `score`) for live/in-progress/score/minute questions. A preview article or fixture list without status fields is insufficient to conclude no match is live.
+- Do not use web search for covered-league live/status/score/minute while `scripts/polymarket-sports.py` is available. If that helper fails, say the live-status source cannot confirm the answer.
 - Sports fact-only replies use compact text with absolute dates (`YYYY-MM-DD HH:mm UTC`) and the user's local timezone when known. (Shape sections below enforce the stacked structure.)
 - Multi-match/count replies use one numbered list. One source line at the end unless items came from different sources.
 - Resolve user-relative windows before filtering. "Tonight" means the user's local evening/night window, defaulting to 18:00 through 06:00 the next local day when the user did not specify a different range. "Today" means the user's local calendar day. If the user's timezone is not known from runtime/session/prior message, ask for it first and stop before filtering, counting, listing, or answering.
@@ -83,7 +84,9 @@ Worked conversion example: for a UTC+8 user asking on 2026-06-15, "tonight" is 2
 
 Use this for "is anything live now", score, minute, started, or ended questions.
 
-When explicit live fields exist:
+When explicit live fields exist, or when `scripts/polymarket-sports.py live/status` returns `terminal:true`, use the helper's `assistant_message` verbatim.
+
+General shape when manually rendering explicit live fields:
 
 ```text
 **Matches in progress**
@@ -138,9 +141,10 @@ User: How many minutes into the match are we? / What's the current score?
 
 Correct flow:
 
-1. Check whether an allowed source has returned explicit live-status fields (`live`, `ended`, `period`, `elapsed`, `score`). The default Polymarket CLI does not return these.
-2. If a source has live fields: reply with what those fields say, in a compact label-value structure consistent with the Sports fact-only shape.
-3. If no live source is available in this session: reply that the current data cannot confirm the live minute or score.
+1. For covered leagues, call `scripts/polymarket-sports.py live --league <slug>` or `scripts/polymarket-sports.py status --league <slug> --query "<match/team>"` before any web search. Use `fwc` for World Cup and `mlb` for MLB.
+2. Check whether an allowed source has returned explicit live-status fields (`live`, `ended`, `period`, `elapsed`, `score`). The default Polymarket CLI does not return these.
+3. If a source has live fields: reply with what those fields say, in a compact label-value structure consistent with the Sports fact-only shape.
+4. If no live source is available in this session: reply that the current data cannot confirm the live minute or score.
 
 Common failure modes to avoid:
 

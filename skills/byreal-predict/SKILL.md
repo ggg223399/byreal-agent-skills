@@ -1,17 +1,17 @@
 ---
 name: byreal-predict
 description: >-
-  Use whenever the user mentions Polymarket, Byreal prediction markets, YES/NO markets, market odds/quotes/prices, event betting, prediction-market orders/funding/positions/proxy wallet, or any follow-up inside an active Polymarket flow. Also use for sports outcome trade phrasing — buying/selling a team, country, player, event outcome, or team YES/NO; a team winning/losing/drawing; "NO" wording; or any negation form (won't win, does not win, against) — even when the user does not mention Polymarket. A team/country/event name plus buy/sell/limit/preview/order/YES/NO wording routes here, not to byreal-perps-cli. Also use for sports schedule/status questions (kickoff times, scores, group standings, qualification state, live/ended status, fixtures, brackets), even when the user frames it as "not a trading request". User-facing replies only: never output hidden reasoning, plan narration, "The user wants", "Let me", "Per AGENTS.md/SKILL.md", file names, raw JSON, or `<mm:think>` tags. Match the current user message language for all visible labels, blockers, tickets, and status text; English examples are documentation only. This skill handles two independent flows — Polymarket trades and sports fact lookups — that share NO data sources; the body's Question Type Triage section decides which flow to enter.
+  Use whenever the user mentions Polymarket, Byreal prediction markets, YES/NO markets, market odds/quotes/prices, event betting, prediction-market orders/funding/positions/proxy wallet, or any follow-up inside an active Polymarket flow. Also use for sports outcome trade phrasing — buying/selling a team, country, player, event outcome, or team YES/NO; a team winning/losing/drawing; "NO" wording; or any negation form (won't win, does not win, against) — even when the user does not mention Polymarket. A team/country/event name plus buy/sell/limit/preview/order/YES/NO wording routes here, not to byreal-perps-cli. Also use for sports schedule/status questions (kickoff times, scores, group standings, qualification state, live/ended status, fixtures, brackets), even when the user frames it as "not a trading request". User-facing replies only: never output hidden reasoning, plan narration, "The user wants", "Let me", "Per AGENTS.md/SKILL.md", file names, raw JSON, or `<mm:think>` tags. Match the current user message language for all visible labels, blockers, tickets, and status text; English examples are documentation only. This skill handles two independent flows — Polymarket trades and sports fact lookups — that do not share price, order, or execution data; the body's Question Type Triage section decides which flow to enter.
 metadata:
   openclaw:
     homepage: https://github.com/byreal-git/byreal-cli
     requires:
       bins:
         - byreal-cli
-    install:
-      - kind: node
-        package: "@byreal-io/byreal-cli-realclaw@v0.5.1-beta.0"
-        global: true
+      install:
+        - kind: node
+          package: "@byreal-io/byreal-cli-realclaw@v0.5.1-beta.0"
+          global: true
 ---
 
 # Byreal Polymarket
@@ -23,11 +23,12 @@ metadata:
 - `scripts/byreal-pm.py` - ticket-enforced wrapper for order/cancel writes. The skill calls this wrapper (not `byreal-cli polymarket order place` / `... order cancel`) for any order/cancel write; reads still go directly to `byreal-cli`. **Always invoke as `python3 skills/byreal-predict/scripts/byreal-pm.py ...`** — do not try the bare `byreal-pm` name first; it is not on PATH by default and the failed call wastes a turn. (Deployers who want the shorthand can `ln -s` the script into `/usr/local/bin/byreal-pm`.) Use `--help` per subcommand for arg lists. See `Buy Or Sell Outcome` and `Cancel Orders` workflows.
 - `scripts/market-resolve.py` - current CLI-backed read-only helper for exact sports market-type requests (spread, handicap, over/under, total, prop). Use it before manually rendering these requests so no-match replies cannot drift into unrelated moneyline summaries.
 - `scripts/account-read.py` - current CLI-backed read-only helper for account-level values that are easy to miscompute, especially floating PnL. Use it for PnL/profit questions before manually reading portfolio data.
+- `scripts/polymarket-sports.py` - Polymarket Sports REST helper for covered sports leagues (`fwc` World Cup, `mlb` MLB) live status, score/minute, ended/not-started status, and fixture reads. Use it before any web search for sports live/status/schedule questions.
 - `scripts/sports-time.py` - deterministic timezone/window helper for sports schedule replies. Use it for user-relative windows such as tonight/today before counting or listing fixtures; do not do timezone arithmetic manually.
 
 ## Script Terminal Reply (worked example)
 
-When any helper script (`byreal-pm.py`, `market-resolve.py`, `account-read.py`) returns `terminal: true`, send the `assistant_message` field verbatim as the entire reply. The `reply_instruction` field repeats this rule — heed it. Do not narrate context, consult prior-turn data, or call further CLI.
+When any helper script (`byreal-pm.py`, `market-resolve.py`, `account-read.py`, `polymarket-sports.py`) returns `terminal: true`, send the `assistant_message` field verbatim as the entire reply. The `reply_instruction` field repeats this rule — heed it. Do not narrate context, consult prior-turn data, or call further CLI.
 
 Example tool result (edited for readability):
 
@@ -49,7 +50,7 @@ Cannot place this order yet
 The CLI did not return a signed or limit price to verify. No ticket was created and there is no pending confirmation.
 ```
 
-The same pattern applies to every `terminal: true` payload from any of the three scripts.
+The same pattern applies to every `terminal: true` payload from any helper script.
 
 ## Question Type Triage
 
@@ -64,8 +65,8 @@ Run this triage BEFORE any CLI / script / tool call.
 ### Worked example
 
 User: "How many matches tonight?" (sports words: matches/tonight; no trade words).
-- Triage → Sports Fact Flow.
-- Ask for the user's timezone and competition scope if either is unknown; then call `sports-time.py filter` against an allowed sports source.
+- Triage -> Sports Fact Flow.
+- Ask for the user's timezone and competition scope if either is unknown; for Polymarket Sports-covered leagues, get fixtures with `polymarket-sports.py fixtures`, then call `sports-time.py filter`.
 - `byreal-cli polymarket event list`, `event detail`, and any `endDate` lookup are off limits for this query, even though Polymarket has event metadata that looks like a schedule.
 
 User: "Buy 1 USDC Brazil wins" (trade word: buy).
@@ -75,10 +76,58 @@ User: "What's the score in the Brazil game and what's the YES price right now?" 
 - Triage → ambiguous. Ask the user which they meant; do not auto-route.
 
 User (after a Polymarket trade discussion about Brazil's match): "When does that game start?"
-- Sports word: start; no trade words → Sports Fact Flow.
+- Sports word: start; no trade words -> Sports Fact Flow.
 - Scope ("Brazil's match") and timezone are already known from prior turns; no re-asking needed.
 - Get the kickoff from a sports source. Polymarket `endDate` is market metadata, not kickoff, even though the Brazil market exists.
 - Reply with the Sports fact-only shape. The next user turn can re-enter Polymarket Flow normally when it has trade words.
+
+## Odds / Price Gate
+
+Use this gate before general discovery rendering when the current turn asks for market price, odds, implied probability, payout math, comparison, ranking, favorite, or "most likely" in a prediction-market sense. Treat "odds" as the user's wording for the Byreal/Polymarket market quote. These are Polymarket Flow reads sourced from current CLI data.
+
+Pure single-outcome odds request, no buy amount and no comparison/ranking:
+
+```text
+**<Outcome>** | **<Market/Event>**
+
+**Current price**: $X
+**Implied probability**: X%
+```
+
+Render this shape as the complete reply for a pure single-outcome odds request.
+
+Buy-amount payout request:
+
+```text
+**<Outcome>** | **<Market/Event>**
+
+**Current price**: $p
+**Buy amount**: $B
+**You get**: ~N.NN shares
+**If right**: max payout ~$N.NN (profit ~$M.MM)
+**If wrong**: max loss $B
+```
+
+Comparison request between two or more outcomes:
+
+```text
+**<Market/Event>**
+
+**<Outcome A>**: $X
+**<Outcome B>**: $Y
+**Higher current market price**: <Outcome>
+```
+
+Leader/favorite request:
+
+```text
+**<Market/Event>**
+
+**Highest current market price**: <Outcome> at $X
+```
+
+For all four shapes, only include values actually resolved from the same current CLI Event/Market detail. If the needed peer outcomes are not in the current CLI result, say the current visible data did not return enough comparable outcomes.
+For non-English replies, localize all visible template labels plus common country/team/player/outcome names when the mapping is obvious from the user's wording or common sports names. For a single-outcome read, use the user's localized outcome wording in the title when it maps unambiguously to the CLI outcome; the raw CLI English label is internal evidence, not the preferred visible title. For a localized World Cup query, use a localized World Cup title when it matches the user's wording. When comparing values, say "current price/market price is higher/lower". Leader/favorite replies may use a compact table sorted by current price, followed by the leader line.
 
 ## Role And Non-Negotiables
 
@@ -126,22 +175,22 @@ Execution-stage `Duplicated`, timeout, network, unknown, or ambiguous submit err
 
 ## Sports Fact Flow
 
-This flow handles every query that Question Type Triage routes to Sports. It runs entirely on external sports sources; the Polymarket CLI is off limits for this flow's entire lifecycle.
+This flow handles every query that Question Type Triage routes to Sports. It runs on sports-status sources, not price/market metadata. The Polymarket CLI is off limits for this flow's entire lifecycle.
 
 Source: `references/sports-timing.md` defines all sports shapes (Sports fact-only / Aggregate schedule / Live status), field boundaries, and reply rules. Read it before answering.
 
 Procedure:
 
 1. Confirm scope and timezone. If competition/event scope is ambiguous, ask. If a user-relative window ("tonight", "today") needs the user's timezone and none is known from runtime/session/prior message, ask for it and stop before listing/counting.
-2. Fetch from an allowed sports source: official organizer/match centre/fixtures/preview pages, or a dedicated sports/live-score tool exposed in the session. For FIFA World Cup, prefer FIFA official sources. Polymarket event/market/`endDate` data is not a sports source for this flow.
-3. For user-relative windows, after collecting source fixtures, run `python3 skills/byreal-predict/scripts/sports-time.py filter --timezone "<tz>" --date <YYYY-MM-DD> --kind <tonight|today> --language <en|zh> --source "<source name>" --scope "<localized scope>" --fixtures-json '<json array>'` and send its `assistant_message` verbatim.
-4. For live/score/minute questions, only render content when the source returned explicit `live`, `ended`, `period`, `elapsed`, or `score` fields. When those fields are absent, use the Live status shape's no-live-data form from `sports-timing.md` (the reply states current data cannot confirm live status; it does not list schedules or fall back to Polymarket).
+2. For Polymarket Sports-covered leagues, call `python3 skills/byreal-predict/scripts/polymarket-sports.py <live|status|fixtures> --league <slug> --language <en|zh>` before any web search. Known slugs: `fwc` = World Cup, `mlb` = MLB. `live` answers "anything live now"; `status --query "<English match/team>"` answers score/minute/started/ended for one match; `fixtures` returns schedule rows.
+3. For user-relative windows, collect fixtures from `polymarket-sports.py fixtures`, then run `python3 skills/byreal-predict/scripts/sports-time.py filter --timezone "<tz>" --date <YYYY-MM-DD> --kind <tonight|today> --language <en|zh> --source "Polymarket Sports REST" --scope "<localized scope>" --fixtures-json '<json array>'` and send its `assistant_message` verbatim.
+4. For live/score/minute questions, send `polymarket-sports.py` terminal `assistant_message` verbatim. If the helper fails, say the live-status source cannot confirm the answer; do not web search or infer from kickoff time.
 5. For single-match schedule replies, use the Sports fact-only shape. For multi-match counts/lists, use the Aggregate schedule shape. Both live in `sports-timing.md`.
 
 Worked example — "is anything live right now?"
 
-- Source returns fixtures only, no live-status fields → reply with the no-live-data form (one short message saying live status cannot be confirmed from the current source). Do not list future fixtures, do not derive "nothing live" from "next kickoff is later than now", and do not call Polymarket as a fallback.
-- Source returns an explicit live field → render the Live status shape rows for the live matches.
+- `polymarket-sports.py live` returns `terminal:true` -> send `assistant_message` verbatim.
+- If the helper is unavailable -> say the live-status source cannot confirm the answer. Do not list future fixtures, do not derive "nothing live" from "next kickoff is later than now", and do not web search.
 
 ## CLI Command Shapes
 
@@ -150,6 +199,8 @@ Worked example — "is anything live right now?"
 - Search Events: `byreal-cli polymarket event search --query "<English query>" --limit <n> -o json`.
 - Fetch Event detail: `byreal-cli polymarket event detail --event-id <eventId> -o json`; add `--full` only when compact detail omits the needed Market/outcome.
 - Exact sports market-type resolver: `python3 skills/byreal-predict/scripts/market-resolve.py --event-query "<English event query>" --market-query "<English requested market type>" --display-market "<user-facing requested market>" --language <en|zh>`. Use for spread, handicap, over/under, total, and prop requests before manually rendering Event detail. Terminal helper output is final.
+- Sports live/status: `python3 skills/byreal-predict/scripts/polymarket-sports.py live --league <slug> --language <en|zh>` or `... status --league <slug> --query "<English match/team>" --language <en|zh>`. Use `fwc` for World Cup and `mlb` for MLB. Terminal helper output is final.
+- Fixture source for timezone filtering: `python3 skills/byreal-predict/scripts/polymarket-sports.py fixtures --league <slug> --language <en|zh>`.
 - Read portfolio: `byreal-cli polymarket portfolio read -o json`; read one position with `byreal-cli polymarket portfolio read --position-id <positionId> -o json`, where `positionId` is the outcome token id returned by portfolio read.
 - Account floating PnL helper: `python3 skills/byreal-predict/scripts/account-read.py pnl --language <en|zh>`; use `zh` for Chinese user messages and `en` for English user messages. Terminal helper output is final.
 - Funding balance: `byreal-cli polymarket funding balance -o json`.
@@ -177,6 +228,9 @@ For funding writes (direct CLI), the prior `--dry-run` output is the pending con
 - Multi-outcome and 3-way markets follow CLI-returned outcomes; binary Yes/No applies only when the CLI itself returns binary outcomes.
 - Before trading, confirm Event, Market, outcome, tradability, price, outcome token id, and `condition_id` from current CLI output.
 - Price fields (bid, ask, mid, last trade, current/average/worst) are distinct — label which one the reply uses, and keep price semantics separate from external facts.
+- Price/odds answers use the current CLI price as the source. For price `p`: one share costs `$p`, pays `$1` if correct, and pays `$0` if incorrect. If the user asks about a `$B` buy, estimate `shares = B / p`, max payout `= shares`, max profit `= shares - B`, and max loss `= B`. Use current price / market price and implied probability for ordinary price replies.
+- A pure price/odds request for one outcome uses the single-outcome price shape: current price and implied probability.
+- Ranking/favorite claims come from comparing the requested outcome against current CLI-returned options in the same Market/Event detail. Phrase ranking as a current market-price comparison, e.g. `highest current price among returned options`.
 
 ## Workflows
 
@@ -502,12 +556,16 @@ Highest current price: <option> at $X.
 This is a market price, not a verified forecast.
 ```
 
-Price explanation shape — for "what does this price mean":
+Price / odds explanation shape — for "what is the price/odds", "what does this price mean", or "what happens if I buy $B":
 
 ```text
 <Outcome> current price: $X.
 Cost: $X per share.
+Implied probability: X%.
 If it resolves in favor: each share pays $1.
 If it resolves against: each share pays $0, so the $X cost is lost.
+If buying $B: about N.NN shares, max payout about $N.NN, max profit about $M.MM, max loss $B.
 This is a market price, not a verified forecast.
 ```
+
+Omit the `$B` line when the user did not ask about a buy amount. Do not add favorite/rank wording unless the current reply compares all relevant CLI-returned options in the same Market/Event detail.

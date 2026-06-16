@@ -84,10 +84,6 @@ Polymarket prices are 0-1 implied probabilities; payout per share is $1 on the c
 | Quantity | Formula | Example (`price` = $0.62) |
 | --- | --- | --- |
 | Implied probability | `price` | 62% |
-| Decimal odds | `1 / price` | 1.61x |
-| American odds (favorite, price > 0.5) | `-100 × price / (1 - price)` | -163 |
-| American odds (underdog, price ≤ 0.5) | `+100 × (1 - price) / price` | n/a here |
-| Fractional odds | `(1 - price) : price` | ≈ 38 : 62 (≈ 3 : 5) |
 
 For a BUY at `price` with `shares` shares:
 
@@ -97,9 +93,17 @@ For a BUY at `price` with `shares` shares:
 - Max loss (if loses): `price × shares`
 - ROI if wins: `(1 - price) / price` (e.g. buying at $0.62 yields ~61% return)
 
+For a BUY with budget `B` at `price`:
+
+- Estimated shares: `B / price`
+- Max payout (if wins): `B / price`
+- Profit if wins: `(B / price) - B`
+- Max loss (if loses): `B`
+- Example: buying `$1` at `$0.1725` gets about `5.80` shares, max payout about `$5.80`, profit about `$4.80`, and max loss `$1`.
+
 For closing a position (selling held shares):
 
 - Proceeds: `sell_price × shares`
 - PnL: `(sell_price - avg_price) × shares`
 
-Default rendering keeps the dollar price `$X`. Add "(N% implied probability)" when explaining what a price means; switch to decimal / American / fractional only when the user asks for that format.
+Default rendering keeps the dollar price `$X`. Add "(N% implied probability)" when explaining what a price means. Byreal price replies use prediction-market quotes: current price, implied probability, and buy-amount payout math when the user asks for a budget.
