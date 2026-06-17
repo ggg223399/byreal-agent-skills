@@ -52,10 +52,29 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 
+read_configured_wallet() {
+  byreal-cli wallet address 2>/dev/null \
+    | python3 -c 'import re,sys; raw=sys.stdin.read(); matches=re.findall(r"\b[1-9A-HJ-NP-Za-km-z]{32,44}\b", raw); print(matches[0] if matches else "")'
+}
+
 set +e
 byreal-cli wallet balance --wallet-address "$wallet" -o json > "$tmp" 2>&1
 exit_code=$?
 set -e
+
+if [[ $exit_code -ne 0 ]] && grep -qi -- "--wallet-address" "$tmp"; then
+  configured_wallet="$(read_configured_wallet)"
+  if [[ "$configured_wallet" != "$wallet" ]]; then
+    echo "wallet_selector_unsupported: byreal-cli does not support --wallet-address; configured_wallet=${configured_wallet:-unknown} requested_wallet=$wallet" >&2
+    cat "$tmp" >&2
+    exit 2
+  fi
+
+  set +e
+  byreal-cli wallet balance -o json > "$tmp" 2>&1
+  exit_code=$?
+  set -e
+fi
 
 if [[ $exit_code -ne 0 ]]; then
   echo "balance_read_failed: byreal-cli exited $exit_code" >&2
@@ -197,7 +216,15 @@ if not matches and mint == NATIVE_SOL_MINT:
         "nativeBalance",
     ))
     if isinstance(native, dict):
-        native = field(native, ("amount_ui", "uiAmount", "uiAmountString", "amount", "balance"))
+        native = field(native, (
+            "amount_ui",
+            "amount_sol",
+            "amountSol",
+            "uiAmount",
+            "uiAmountString",
+            "amount",
+            "balance",
+        ))
     native_amount = dec(native) if native is not None else None
     if native_amount is not None:
         amount = native_amount
