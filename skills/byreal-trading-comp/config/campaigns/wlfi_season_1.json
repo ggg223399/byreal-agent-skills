@@ -1,0 +1,77 @@
+{
+  "campaign_type": "wlfi_season_1",
+  "display": {
+    "title": "USD1 Trading Competition",
+    "summary": "Volume-ranked Byreal trading competition restricted by this skill to three core pools: USD1/USDC, SOL/USD1, and WLFI/USDC. Ranking is based on eligible USD volume.",
+    "reward_pool_text": "Rewards are paid in WLFI within 21 days after the event ends. Minimum eligible volume: $20,000 for Top 10, $5,000 for ranks #11-#300.",
+    "link": "https://docs.byreal.io/usd1-trading-competition/overview"
+  },
+  "docs": {
+    "overview": "https://docs.byreal.io/usd1-trading-competition/overview",
+    "how_to_join": "https://docs.byreal.io/usd1-trading-competition/how-to-join",
+    "rules_and_rewards": "https://docs.byreal.io/usd1-trading-competition/rules-and-rewards",
+    "faq": "https://docs.byreal.io/usd1-trading-competition/faq"
+  },
+  "rules": {
+    "source": "Byreal official USD1 Trading Competition docs",
+    "event_window": {
+      "start_utc": "2026-05-19T10:00:00Z",
+      "end_utc": "2026-06-18T10:00:00Z",
+      "leaderboard_update_minutes": 15
+    },
+    "eligibility": {
+      "policy": "configured_core_pools_only",
+      "description": "This skill only executes the three configured core pools for this campaign: USD1/USDC, SOL/USD1, and WLFI/USDC.",
+      "router_required": "Byreal Router",
+      "external_aggregators_count": false
+    },
+    "scoring": {
+      "basis": "total_usd_volume",
+      "round_trip_local_accounting": "both_legs",
+      "pair_or_token_bonus_multipliers": false,
+      "realclaw_volume_multiplier": 1.1,
+      "notes": "Every 1 USD of eligible volume counts equally; the RealClaw 1.1x boost is the only documented exception."
+    },
+    "fees": {
+      "standardized_total_fee_pct_most_pools": 0.6,
+      "notes": "Official docs state the total fee is 0.60% (Pool Fee + Router Fee) for most pools during the competition; a two-leg round trip may therefore exceed a strict total-cost gate before price impact."
+    },
+    "minimum_volume_usd": {
+      "top_10": 20000,
+      "ranks_11_to_300": 5000
+    },
+    "rewards": {
+      "token": "WLFI",
+      "distribution": "paid to the participating wallet within 21 days after the event ends",
+      "claim_required": false
+    },
+    "terms": [
+      "Byreal reserves final interpretation and reward distribution remains subject to Byreal's final review.",
+      "Terms may change without prior notice. The English version prevails."
+    ]
+  },
+  "eligible_pools": [
+    {
+      "name": "USD1-USDC",
+      "mints": [
+        "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB",
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+      ]
+    },
+    {
+      "name": "SOL-USD1",
+      "mints": [
+        "So11111111111111111111111111111111111111112",
+        "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB"
+      ]
+    },
+    {
+      "name": "WLFI-USDC",
+      "mints": [
+        "WLFinEv6ypjkczcS83FZqFpgFZYwQXutRbxGe7oC16g",
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+      ]
+    }
+  ],
+  "notes": "Official docs list the eligible core pairs and rules for the USD1 Trading Competition. Keep this season immutable after deployment; for a new season, add a new campaign config instead of editing this file in place."
+}
