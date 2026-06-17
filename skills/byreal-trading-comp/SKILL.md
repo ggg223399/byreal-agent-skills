@@ -142,7 +142,7 @@ Snapshot all thresholds at setup. Runtime edits apply to future sessions.
 - With no user-supplied dollar cost budget, leave `max_loss_usd` unset and show estimated burn in the setup summary.
 - Wait for explicit user "yes" after setup confirmation before any `--confirm`.
 - `success:true` with `confirmed:false` is ambiguous. Poll signature/balances before treating a swap as settled or proceeding.
-- Live swap input amounts must come from the current wallet balance when the leg is spending the full available side or continuing an all-balance cycle. Never use a prior quote/output amount as the next live `--amount`; quote/output values are for accounting and display only.
+- Live swap input amounts must be checked against current wallet balances before each submit. For configured-size runners, keep the planned first-leg amount and use the observed post-first-swap balance delta for the return leg. Use the full current balance only when the user explicitly requested an all-balance/manual cycle. Never use a prior quote/output amount as the next live `--amount`; quote/output values are for accounting and display only.
 - First-swap failure: log failure and return to the next cycle/pool decision. Return-swap failure after the first swap succeeds: alert that wallet is holding `other_mint`, retry once at current `slippage_bps`, then pause as `paused_holding_other_mint`.
 - Slippage, thresholds, and pools change through explicit user instruction.
 - After a successful cycle, report transaction evidence and local accounting first. Final credited volume/rank comes from a later rank poll (see `references/accounting-and-risk.md` for lag tolerance).
